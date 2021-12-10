@@ -135,8 +135,8 @@ namespace RebelCmsGenerator
         }
         public string GenerateModel(string tableName, string module)
         {
-            var ucTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.UcWords);
-            var lcTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.LcWords);
+            var ucTableName = GetStringNoUnderScore(tableName, (int)TextCase.UcWords);
+            var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
             StringBuilder template = new();
             template.AppendLine($"namespace RebelCmsTemplate.Models.{module};");
@@ -159,8 +159,8 @@ namespace RebelCmsGenerator
                         {
                             if (GetNumberDataType().Contains(DataType))
                             {
-                                if(Field != null)
-                                template.AppendLine("private int " + UpperCaseFirst(Field) + " {get,init;}");
+                                if (Field != null)
+                                    template.AppendLine("private int " + UpperCaseFirst(Field) + " {get,init;}");
 
                             }
                             else if (GetDateDataType().Contains(DataType))
@@ -193,8 +193,8 @@ namespace RebelCmsGenerator
         }
         public string GenerateController(string tableName, string module)
         {
-            var ucTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.UcWords);
-            var lcTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.LcWords);
+            var ucTableName = GetStringNoUnderScore(tableName, (int)TextCase.UcWords);
+            var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
             StringBuilder template = new();
 
@@ -378,8 +378,8 @@ namespace RebelCmsGenerator
         }
         public string GeneratePages(string tableName, string module)
         {
-            var ucTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.UcWords);
-            var lcTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.LcWords);
+            var ucTableName = GetStringNoUnderScore(tableName, (int)TextCase.UcWords);
+            var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
             StringBuilder template = new();
 
@@ -1007,13 +1007,52 @@ namespace RebelCmsGenerator
         }
         public string GenerateRepository(string tableName, string module)
         {
-            var ucTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.UcWords);
-            var lcTableName = GetTableNameNoUnderScore(tableName, (int)TextCase.LcWords);
+            var ucTableName = GetStringNoUnderScore(tableName, (int)TextCase.UcWords);
+            var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
-            List<string?> fieldName = describeTableModels.Select(x => x.FieldValue).ToList();
-            var onLineFieldName = String.Join(',', fieldName);
-            List<string?> fieldNameParameter = (List<string?>)fieldName.Select(x => "@" + x);
-            var onLineFieldParameter = String.Join(',', fieldNameParameter);
+            List<string?> fieldNameList = describeTableModels.Select(x => x.FieldValue).ToList();
+            var sqlFieldName = String.Join(',', fieldNameList);
+            List<string?> fieldNameParameter = new();
+            foreach (var fieldName in fieldNameList)
+            {
+                fieldNameParameter.Add("@"+fieldName);
+            };
+            var sqlBindParamFieldName = String.Join(',', fieldNameParameter);
+
+            StringBuilder loopColumn = new();
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                //  var x = describeTableModel.KeyValue??describeTableModel ; not working yeah
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+                List<string> keyValue = new() { "PRI", "MUL" };
+                if (keyValue.Contains(Key))
+                {
+                    loopColumn.AppendLine("                    new ()");
+                    loopColumn.AppendLine("                    {");
+                    loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                    loopColumn.AppendLine("                        Value = "+UpperCaseFirst(Field)+"Model."+UpperCaseFirst(Field.Replace("Id", "Key")));
+                    loopColumn.AppendLine("                    },");
+                }
+                else
+                {
+                    loopColumn.AppendLine("                    new ()");
+                    loopColumn.AppendLine("                    {");
+                    loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                    loopColumn.AppendLine("                        Value = "+UpperCaseFirst(Field)+"Model."+UpperCaseFirst(Field));
+                    loopColumn.AppendLine("                    },");
+                }
+            }
+
             StringBuilder template = new();
 
             template.AppendLine("using System;");
@@ -1044,16 +1083,13 @@ namespace RebelCmsGenerator
             template.AppendLine("            {");
             template.AppendLine("                connection.Open();");
             template.AppendLine("                MySqlTransaction mySqlTransaction = connection.BeginTransaction();");
-            template.AppendLine("                sql += @\"INSERT INTO "+tableName+" ("+fieldName+") VALUES ("+fieldNameParameter+");\";");
+            template.AppendLine("                sql += @\"INSERT INTO "+tableName+" ("+sqlFieldName+") VALUES ("+sqlBindParamFieldName+");\";");
             template.AppendLine("                MySqlCommand mySqlCommand = new(sql, connection);");
             template.AppendLine("                parameterModels = new List<ParameterModel>");
-            // loop start
+
             template.AppendLine("                {");
-            template.AppendLine("                    new ()");
-            template.AppendLine("                    {");
-            template.AppendLine("                        Key = \"@tenantName\",");
-            template.AppendLine("                        Value = tenantModel.TenantName");
-            template.AppendLine("                    },");
+            // loop start
+            template.AppendLine(loopColumn.ToString().TrimEnd(','));
             // loop end
             template.AppendLine("                };");
             template.AppendLine("                foreach (ParameterModel parameter in parameterModels)");
@@ -1171,9 +1207,12 @@ namespace RebelCmsGenerator
             template.AppendLine("            using var workbook = new XLWorkbook();");
             template.AppendLine("            var worksheet = workbook.Worksheets.Add(\"Administrator > "+ucTableName+" \");");
             // loop here
-            template.AppendLine("            worksheet.Cell(1, 1).Value = \"No\";");
+            for (int i = 0; i < fieldNameList.Count; i++)
+            {
+                template.AppendLine("            worksheet.Cell(1, "+(i+1)+").Value = \""+fieldNameList[i]+"\";");
+            }
             // loop end
-            template.AppendLine("            worksheet.Cell(1, 2).Value = \"Tenant\";");
+
             template.AppendLine("            var sql = _sharedUtil.GetSqlSession();");
             template.AppendLine("           var parameterModels = _sharedUtil.GetListSqlParameter();");
             template.AppendLine("            using MySqlConnection connection = SharedUtil.GetConnection();");
@@ -1195,8 +1234,10 @@ namespace RebelCmsGenerator
             template.AppendLine("                    {");
             template.AppendLine("                        var currentRow = counter++;");
             // loop here
-            template.AppendLine("                        worksheet.Cell(currentRow, 1).Value = counter-1;");
-            template.AppendLine("                        worksheet.Cell(currentRow, 2).Value = reader[\"tenantName\"].ToString();");
+            for (int i = 0; i < fieldNameList.Count; i++)
+            {
+                template.AppendLine("                        worksheet.Cell(currentRow, 2).Value = reader[\""+fieldNameList[i]+"\"].ToString();");
+            }
             // loop end here
             template.AppendLine("                    }");
             template.AppendLine("                }");
@@ -1223,34 +1264,33 @@ namespace RebelCmsGenerator
             template.AppendLine("                sql = @\"");
             template.AppendLine("                UPDATE  "+tableName+" ");
             // start loop
-            template.AppendLine("                SET     tenantName  =   @tenantName");
+            template.AppendLine("                SET     ");
+            StringBuilder updateString = new();
+            for (int i = 0; i < fieldNameList.Count; i++)
+            {
+                if (i+1 == fieldNameList.Count)
+                {
+                    updateString.AppendLine(fieldNameList[i]+"=@"+fieldNameList[i]);
+
+                }
+                else {
+                    updateString.AppendLine(fieldNameList[i]+"=@"+fieldNameList[i]+",");
+                }
+                
+            }
+            template.AppendLine(updateString.ToString().TrimEnd(','));
             // end loop
             template.AppendLine("                WHERE   " + lcTableName + "Id    =   @" + lcTableName + "Id \";");
             template.AppendLine("                MySqlCommand mySqlCommand = new(sql, connection);");
-            // loop here
-            template.AppendLine("                mySqlCommand.Parameters.AddWithValue(\"@tenantName\", tenantModel.TenantName);");
-            template.AppendLine("                mySqlCommand.Parameters.AddWithValue(\"@tenantId\", tenantModel.TenantKey);");
+
             // loop end
             template.AppendLine("                parameterModels = new List<ParameterModel>");
+
             template.AppendLine("                {");
             // loop start
-            template.AppendLine("                    new ()");
-            template.AppendLine("                    {");
-            template.AppendLine("                        Key = \"@tenantId\",");
-            template.AppendLine("                        Value = _sharedUtil.GetTenantId()");
-            template.AppendLine("                    },");
+            template.AppendLine(loopColumn.ToString().TrimEnd(','));
             // loop end
-            template.AppendLine("                    new ()");
-            template.AppendLine("                    {");
-            template.AppendLine("                       Key = \"@tenantName\",");
-            template.AppendLine("                        Value = tenantModel.TenantName");
-            template.AppendLine("                    },");
-            template.AppendLine("                    new ()");
-            template.AppendLine("                   {");
-            template.AppendLine("                        Key = \"@executeBy\",");
-            template.AppendLine("                        Value = _sharedUtil.GetUserName()");
-            template.AppendLine("                    }");
-            template.AppendLine("               };");
+            template.AppendLine("                };");
             template.AppendLine("                foreach (ParameterModel parameter in parameterModels)");
             template.AppendLine("                {");
             template.AppendLine("                    mySqlCommand.Parameters.AddWithValue(parameter.Key, parameter.Value);");
@@ -1293,7 +1333,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                {");
             template.AppendLine("                    mySqlCommand.Parameters.AddWithValue(parameter.Key, parameter.Value);");
             template.AppendLine("                }");
-            template.AppendLine("               mySqlCommand.ExecuteNonQuery();");
+            template.AppendLine("                mySqlCommand.ExecuteNonQuery();");
             template.AppendLine("                mySqlTransaction.Commit();");
             template.AppendLine("                mySqlCommand.Dispose();");
             template.AppendLine("            }");
@@ -1334,7 +1374,7 @@ namespace RebelCmsGenerator
         /// <param name="t"></param>
         /// <param name="type">1 - uppercase first , 0 - lowercase</param>
         /// <returns></returns>
-        private static string GetTableNameNoUnderScore(string t, int type)
+        private static string GetStringNoUnderScore(string t, int type)
         {
             t = t.ToLower();
             if (t.IndexOf("_") > 0)
