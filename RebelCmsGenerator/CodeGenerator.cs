@@ -213,19 +213,31 @@ namespace RebelCmsGenerator
             List<string?> fieldNameList = describeTableModels.Select(x => x.FieldValue).ToList();
 
             StringBuilder template = new();
-            StringBuilder modelString = new();
-            int counter = 0;
+            StringBuilder createModelString = new();
+            StringBuilder updateModelString = new();
+            int counter =1;
             foreach (var fieldName in fieldNameList)
             {
+                var name = string.Empty;
+                if (fieldName!= null)
+                    name = fieldName;
+                if (name.Contains("Id"))
+                {
+                    name = name.Replace("Id", "Key");
+                }
                 if (counter == fieldNameList.Count)
                 {
-                    modelString.AppendLine($"                                {ucTableName}Name = {lcTableName}Name");
-
+                    updateModelString.AppendLine($"{name} = {name}");
+                    createModelString.AppendLine($"{name} = {name}");
                 }
                 else
                 {
-                    modelString.AppendLine($"                                {ucTableName}Name = {lcTableName}Name,");
+                    if (!name.Equals(lcTableName+"Key"))
+                        createModelString.AppendLine($"{name} = {name},");
+
+                    updateModelString.AppendLine($"{name} = {name},");
                 }
+                counter++;  
             }
 
             template.AppendLine($"namespace RebelCmsTemplate.Controllers.Api.{module};\n");
@@ -277,29 +289,32 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
+                if (Field.Contains("Id"))
+                    Field = Field.Replace("Id", "Key");
+
                 if (GetNumberDataType().Contains(Type))
                 {
-                    template.AppendLine($"int {GetStringNoUnderScore(Field, (int)TextCase.UcWords)} =  !string.IsNullOrEmpty(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"])?Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"]:0");
+                    template.AppendLine($"int  =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Request.Form[\"{Field}\"]:0");
                     template.AppendLine("");
                 }
                 else if (GetDateDataType().Contains(Type))
                 {
                     if (Type.ToString().Contains("DateTime"))
                     {
-                        template.AppendLine($" DateTime {GetStringNoUnderScore(Field, (int)TextCase.LcWords)} = DateTime.MinValue;");
-                        template.AppendLine($"if (!string.IsNullOrEmpty(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"]))");
+                        template.AppendLine($" DateTime {Field} = DateTime.MinValue;");
+                        template.AppendLine($"if (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                         template.AppendLine("{");
-                        template.AppendLine($"if (DateTime.TryParseExact(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"], formats,new CultureInfo(\"en-US\"),DateTimeStyles.None,out dateValue));");
+                        template.AppendLine($"if (DateTime.TryParseExact(Request.Form[\"{Field}\"], formats,new CultureInfo(\"en-US\"),DateTimeStyles.None,out dateValue));");
                         template.AppendLine("}");
                     }
                     else
                     {
-                        template.AppendLine($"int {GetStringNoUnderScore(Field, (int)TextCase.UcWords)} =  !string.IsNullOrEmpty(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\")?Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"]:0");
+                        template.AppendLine($"int {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\")?Request.Form[\"{Field}\"]:0");
                     }
                 }
                 else
                 {
-                    template.AppendLine($"            var {GetStringNoUnderScore(Field, (int)TextCase.LcWords)} = Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"];");
+                    template.AppendLine($"            var {Field} = Request.Form[\"{Field}\"];");
                 }
 
 
@@ -329,7 +344,7 @@ namespace RebelCmsGenerator
             template.AppendLine($"                            {ucTableName}Model {lcTableName}Model = new()");
             // start loop
             template.AppendLine("                            {");
-            template.Append(modelString);
+            template.Append(createModelString);
             template.AppendLine("                            };");
             // end loop
             template.AppendLine($"                           lastInsertKey = {lcTableName}Repository.Create({lcTableName}Model);");
@@ -391,7 +406,9 @@ namespace RebelCmsGenerator
             template.AppendLine("                        {");
             template.AppendLine($"                            {ucTableName}Model {lcTableName}Model = new()");
             // start loop
-            template.Append(modelString);
+            template.AppendLine("                            {");
+            template.Append(updateModelString);
+            template.AppendLine("                            };");
             // end loop
             template.AppendLine($"                            {lcTableName}Repository.Update({lcTableName}Model);");
             template.AppendLine("                            code = ((int)ReturnCodeEnum.UPDATE_SUCCESS).ToString();");
@@ -415,7 +432,7 @@ namespace RebelCmsGenerator
             template.AppendLine($"                            {ucTableName}Model {lcTableName}Model = new()");
             // start loop
             template.AppendLine("                            {");
-            template.AppendLine($"                                {ucTableName}Key = ({lcTableName}Key");
+            template.AppendLine($"                                {ucTableName}Key = {lcTableName}Key");
             template.AppendLine("                            };");
             // end loop
             template.AppendLine($"                            {lcTableName}Repository.Delete({lcTableName}Model);");
@@ -553,7 +570,7 @@ namespace RebelCmsGenerator
                 if (describeTableModel.KeyValue != null)
                     Key = describeTableModel.KeyValue;
                 if (describeTableModel.FieldValue != null)
-                    Field = GetStringNoUnderScore(describeTableModel.FieldValue, (int)TextCase.LcWords) ;
+                    Field = describeTableModel.FieldValue;
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
@@ -574,7 +591,8 @@ namespace RebelCmsGenerator
                         template.AppendLine($"                                            <input type=\"datetime-local\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
                         template.AppendLine("                                        </label>");
                         template.AppendLine("                                    </td>");
-                    } else if (Type.ToString().Contains("Date"))
+                    }
+                    else if (Type.ToString().Contains("Date"))
                     {
                         template.AppendLine("                                    <td>");
                         template.AppendLine("                                        <label>");
@@ -717,17 +735,17 @@ namespace RebelCmsGenerator
                     Field = GetStringNoUnderScore(describeTableModel.FieldValue, (int)TextCase.LcWords);
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
-                
+
                 // later custom validator 
 
             }
-                StringBuilder templateField = new();
+            StringBuilder templateField = new();
             StringBuilder oneLineTemplateField = new();
             foreach (var fieldName in fieldNameList)
             {
                 var name = string.Empty;
                 if (fieldName != null)
-                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+                    name = fieldName;
 
                 if (name.Contains("Id"))
                 {
@@ -827,7 +845,7 @@ namespace RebelCmsGenerator
             {
                 var name = string.Empty;
                 if (fieldName != null)
-                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+                    name  = fieldName;
 
                 if (name.Contains("Id"))
                 {
@@ -852,7 +870,7 @@ namespace RebelCmsGenerator
             {
                 var name = string.Empty;
                 if (fieldName != null)
-                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+                    name  = fieldName;
 
                 if (name.Contains("Id"))
                 {
@@ -891,7 +909,7 @@ namespace RebelCmsGenerator
             {
                 var name = string.Empty;
                 if (fieldName != null)
-                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+                    name  = fieldName;
 
                 if (name.Contains("Id"))
                 {
@@ -1074,7 +1092,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                for (let i = 0; i < data.data.length; i++) {");
             template.AppendLine("                 row = data.data[i];");
             // remember one line row 
-          
+
             template.AppendLine("                 templateStringBuilder += template("+templateField.ToString().TrimEnd(',')+");");
             template.AppendLine("                }");
             template.AppendLine("                $(\"#tableBody\").html(\"\").html(templateStringBuilder);");
@@ -1148,11 +1166,12 @@ namespace RebelCmsGenerator
             {
                 var name = string.Empty;
                 if (fieldName != null)
-                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+                    name  = fieldName;
 
                 if (name.Contains("Id"))
                 {
-                    template.AppendLine($"           {name}: $(\"#{name.Replace("Id", "Key")}-\" + {name.Replace("Id","Key")}).val();");
+                    if (name != lcTableName+"Key ")
+                        template.AppendLine($"           {name}: $(\"#{name.Replace("Id", "Key")}-\" + {name.Replace("Id", "Key")}).val();");
                 }
                 else
                 {
@@ -1678,7 +1697,17 @@ namespace RebelCmsGenerator
                 return string.Empty;
             }
             // Return char and concat substring.
-            return char.ToUpper(s[0]) + s.Substring(1);
+            return char.ToUpper(s[0]) + s[1..];
+        }
+        private static string LowerCaseFirst(string s)
+        {
+            // Check for empty string.
+            if (string.IsNullOrEmpty(s))
+            {
+                return string.Empty;
+            }
+            // Return char and concat substring.
+            return char.ToUpper(s[0]) + s[1..];
         }
         private static string SplitToUnderScore(string s)
         {
