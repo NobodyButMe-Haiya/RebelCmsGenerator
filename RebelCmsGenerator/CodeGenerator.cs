@@ -553,14 +553,54 @@ namespace RebelCmsGenerator
                 if (describeTableModel.KeyValue != null)
                     Key = describeTableModel.KeyValue;
                 if (describeTableModel.FieldValue != null)
-                    Field = describeTableModel.FieldValue;
+                    Field = GetStringNoUnderScore(describeTableModel.FieldValue, (int)TextCase.LcWords) ;
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
-                template.AppendLine("                                    <td>");
-                template.AppendLine("                                        <label>");
-                template.AppendLine("                                            <input type=\"text\" name=\"roleName\" id=\"roleName\" class=\"form-control\" />");
-                template.AppendLine("                                        </label>");
-                template.AppendLine("                                    </td>");
+
+                if (GetNumberDataType().Contains(Type))
+                {
+                    template.AppendLine("                                    <td>");
+                    template.AppendLine("                                        <label>");
+                    template.AppendLine($"                                            <input type=\"number\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                    template.AppendLine("                                        </label>");
+                    template.AppendLine("                                    </td>");
+                }
+                else if (GetDateDataType().Contains(Type))
+                {
+                    if (Type.ToString().Contains("DateTime"))
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <input type=\"datetime-local\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    } else if (Type.ToString().Contains("Date"))
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <input type=\"date\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+                    else
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <input type=\"text\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+                }
+                else
+                {
+                    template.AppendLine("                                    <td>");
+                    template.AppendLine("                                        <label>");
+                    template.AppendLine($"                                            <input type=\"text\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                    template.AppendLine("                                        </label>");
+                    template.AppendLine("                                    </td>");
+                }
+
+
             }
             // end loop
             template.AppendLine("                                    <td style=\"text-align: center\">");
@@ -590,12 +630,51 @@ namespace RebelCmsGenerator
                     Field = describeTableModel.FieldValue;
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
-                template.AppendLine("                                        <td>");
-                template.AppendLine("                                            <label>");
-                template.AppendLine("                                               <input type=\"text\" class=\"form-control\" name=\"roleName[]\"");
-                template.AppendLine("                                                id=\"roleName-@row.RoleKey\" value=\"@row.RoleName\" />");
-                template.AppendLine("                                            </label>");
-                template.AppendLine("                                        </td>");
+
+                if (GetNumberDataType().Contains(Type))
+                {
+                    template.AppendLine("                                    <td>");
+                    template.AppendLine("                                        <label>");
+                    template.AppendLine($"                                            <input type=\"number\" name=\"{Field}[]\" id=\"{Field}\"  value=\"@row.{Field}\" class=\"form-control\" />");
+                    template.AppendLine("                                        </label>");
+                    template.AppendLine("                                    </td>");
+                }
+                else if (GetDateDataType().Contains(Type))
+                {
+                    if (Type.ToString().Contains("DateTime"))
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <input type=\"datetime-local\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+                    else if (Type.ToString().Contains("Date"))
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <input type=\"date\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+                    else
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <input type=\"text\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+                }
+                else
+                {
+                    template.AppendLine("                                    <td>");
+                    template.AppendLine("                                        <label>");
+                    template.AppendLine($"                                            <input type=\"text\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                    template.AppendLine("                                        </label>");
+                    template.AppendLine("                                    </td>");
+                }
+
             }
             // loop here
             template.AppendLine("                                        <td style=\"text-align: center\">");
@@ -627,7 +706,22 @@ namespace RebelCmsGenerator
             template.AppendLine("        </div>");
             template.AppendLine("    </section>");
             template.AppendLine("    <script>");
-            StringBuilder templateField = new();
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = GetStringNoUnderScore(describeTableModel.FieldValue, (int)TextCase.LcWords);
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+                
+                // later custom validator 
+
+            }
+                StringBuilder templateField = new();
             StringBuilder oneLineTemplateField = new();
             foreach (var fieldName in fieldNameList)
             {
@@ -671,11 +765,50 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
-                template.AppendLine("                \"<td>     \" +");
-                template.AppendLine("                \"<label>\" +");
-                template.AppendLine("                \"<input type='text' class='form-control' name='roleName[]' id='roleName-\" + roleKey + \"' value='\" + roleName + \"' />\" +");
-                template.AppendLine("                \"</label>\" +");
-                template.AppendLine("                \"</td>\" +");
+                if (GetNumberDataType().Contains(Type))
+                {
+                    template.AppendLine("                                    \"<td>\" +");
+                    template.AppendLine("                                        \"<label>\" +");
+                    template.AppendLine($"                                            \"<input type='number' name='{Field}[]' id='{Field}'  value='@row.{Field}' class='form-control' />\" +");
+                    template.AppendLine("                                        \"</label>\" +");
+                    template.AppendLine("                                    \"</td>\" +");
+                }
+                else if (GetDateDataType().Contains(Type))
+                {
+                    if (Type.ToString().Contains("DateTime"))
+                    {
+                        template.AppendLine("                                    \"<td>\" +");
+                        template.AppendLine("                                        \"<label>\" +");
+                        template.AppendLine($"                                            \"<input type='datetime-local' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                        template.AppendLine("                                        \"</label>\" +");
+                        template.AppendLine("                                    \"</td>\" +");
+                    }
+                    else if (Type.ToString().Contains("Date"))
+                    {
+                        template.AppendLine("                                    \"<td>\" +");
+                        template.AppendLine("                                        \"<label>\" +");
+                        template.AppendLine($"                                            \"<input type='date' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                        template.AppendLine("                                        \"</label>\" +");
+                        template.AppendLine("                                    \"</td>\" +");
+                    }
+                    else
+                    {
+                        template.AppendLine("                                    \"<td>\" +");
+                        template.AppendLine("                                        \"<label>\" +");
+                        template.AppendLine($"                                            \"<input type='text' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                        template.AppendLine("                                        \"</label>");
+                        template.AppendLine("                                    \"</td>\" +\" +");
+                    }
+                }
+                else
+                {
+                    template.AppendLine("                                    \"<td>\" +");
+                    template.AppendLine("                                        \"<label>\" +");
+                    template.AppendLine($"                                            \"<input type='text' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                    template.AppendLine("                                        \"</label>\" +");
+                    template.AppendLine("                                    \"</td>\" +");
+                }
+
             }
             template.AppendLine("                \"<td style='text-align: center'><div class='btn-group'>\" +");
             template.AppendLine($"                \"<Button type='button' class='btn btn-warning' onclick='updateRecord(\" + {ucTableName}Key + \")'>\" +");
@@ -1017,7 +1150,14 @@ namespace RebelCmsGenerator
                 if (fieldName != null)
                     name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
 
-                template.AppendLine($"           {name}: $(\"#{name}-\" + {lcTableName}Key).val()");
+                if (name.Contains("Id"))
+                {
+                    template.AppendLine($"           {name}: $(\"#{name.Replace("Id", "Key")}-\" + {name.Replace("Id","Key")}).val();");
+                }
+                else
+                {
+                    template.AppendLine($"           {name}: $(\"#{name}-\" + {name}Key).val();");
+                }
             }
             // loop here
             template.AppendLine("          }, statusCode: {");
