@@ -50,7 +50,24 @@ namespace RebelCmsGenerator
         {
             return new List<string> { "date", "datetime", "timestamp", "time" };
         }
-
+        public static List<string> GetDateFormatUsa()
+        {
+            return new List<string> {
+                "M/d/yyyy h:mm:ss tt", "M/d/yyyy h:mm tt",
+                     "MM/dd/yyyy hh:mm:ss", "M/d/yyyy h:mm:ss",
+                     "M/d/yyyy hh:mm tt", "M/d/yyyy hh tt",
+                     "M/d/yyyy h:mm", "M/d/yyyy h:mm",
+                     "MM/dd/yyyy hh:mm", "M/dd/yyyy hh:mm"};
+        }
+        public static List<string> GetDateFormatNonUsa()
+        {
+            return new List<string> {
+                "M/d/yyyy h:mm:ss tt", "M/d/yyyy h:mm tt",
+                     "MM/dd/yyyy hh:mm:ss", "M/d/yyyy h:mm:ss",
+                     "M/d/yyyy hh:mm tt", "M/d/yyyy hh tt",
+                     "M/d/yyyy h:mm", "M/d/yyyy h:mm",
+                     "MM/dd/yyyy hh:mm", "M/dd/yyyy hh:mm"};
+        }
         public List<string> GetTableList()
         {
             using MySqlConnection connection = GetConnection();
@@ -143,46 +160,43 @@ namespace RebelCmsGenerator
             template.AppendLine("public class " + tableName + "Model{");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
-                string? Key = describeTableModel.KeyValue;
-                string? Field = describeTableModel.FieldValue;
-                string? DataType = describeTableModel.TypeValue;
-                if (Key != null)
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+                if (Key.Equals("PRI") || Key.Equals("MUL"))
                 {
-                    if (Key.Equals("PRI") || Key.Equals("MUL"))
+                    if (Field != null)
+                        template.AppendLine("private int " + UpperCaseFirst(Field.Replace("Id", "Key")) + "Key {get,init;}");
+                }
+                else
+                {
+                    if (GetNumberDataType().Contains(Type))
                     {
-                        if (Field != null)
-                            template.AppendLine("private int " + UpperCaseFirst(Field.Replace("Id", "Key")) + "Key {get,init;}");
+                        template.AppendLine("private int " + GetStringNoUnderScore(Field, (int)TextCase.UcWords) + " {get,init;}");
+                    }
+                    else if (GetDateDataType().Contains(Type))
+                    {
+                        if (Type.ToString().Contains("DateTime"))
+                        {
+                            template.AppendLine("private DateTime " + GetStringNoUnderScore(Field, (int)TextCase.UcWords) + " {get,init;}");
+                        }
+                        else
+                        {
+                            template.AppendLine("private string? " + GetStringNoUnderScore(Field, (int)TextCase.UcWords) + " {get,init;}");
+                        }
                     }
                     else
                     {
-                        if (DataType != null)
-                        {
-                            if (GetNumberDataType().Contains(DataType))
-                            {
-                                if (Field != null)
-                                    template.AppendLine("private int " + UpperCaseFirst(Field) + " {get,init;}");
-
-                            }
-                            else if (GetDateDataType().Contains(DataType))
-                            {
-                                if (DataType.ToString().Contains("DateTime"))
-                                {
-                                    if (Field != null)
-                                        template.AppendLine("private DateTime " + UpperCaseFirst(Field) + " {get,init;}");
-                                }
-                                else
-                                {
-                                    if (Field != null)
-                                        template.AppendLine("private string? " + UpperCaseFirst(Field) + " {get,init;}");
-                                }
-                            }
-                            else
-                            {
-                                if (Field != null)
-                                    template.AppendLine("private string? " + UpperCaseFirst(Field) + " {get,init;}");
-                            }
-                        }
+                        template.AppendLine("private string? " + UpperCaseFirst(Field) + " {get,init;}");
                     }
+
                 }
             }
 
@@ -196,7 +210,23 @@ namespace RebelCmsGenerator
             var ucTableName = GetStringNoUnderScore(tableName, (int)TextCase.UcWords);
             var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
+            List<string?> fieldNameList = describeTableModels.Select(x => x.FieldValue).ToList();
+
             StringBuilder template = new();
+            StringBuilder modelString = new();
+            int counter = 0;
+            foreach (var fieldName in fieldNameList)
+            {
+                if (counter == fieldNameList.Count)
+                {
+                    modelString.AppendLine($"                                {ucTableName}Name = {lcTableName}Name");
+
+                }
+                else
+                {
+                    modelString.AppendLine($"                                {ucTableName}Name = {lcTableName}Name,");
+                }
+            }
 
             template.AppendLine($"namespace RebelCmsTemplate.Controllers.Api.{module};\n");
             template.AppendLine($"[Route(\"api/{module.ToLower()}/[controller]\")]");
@@ -205,7 +235,7 @@ namespace RebelCmsGenerator
 
             template.AppendLine(" private readonly IHttpContextAccessor _httpContextAccessor;");
             template.AppendLine(" private readonly RenderViewToStringUtil _renderViewToStringUtil;");
-            template.AppendLine(" public RoleController(RenderViewToStringUtil renderViewToStringUtil, IHttpContextAccessor httpContextAccessor)");
+            template.AppendLine(" public " + ucTableName + "Controller(RenderViewToStringUtil renderViewToStringUtil, IHttpContextAccessor httpContextAccessor)");
             template.AppendLine(" {");
             template.AppendLine("  _renderViewToStringUtil = renderViewToStringUtil;");
             template.AppendLine("  _httpContextAccessor = httpContextAccessor;");
@@ -222,7 +252,11 @@ namespace RebelCmsGenerator
             template.AppendLine("   }");
             template.AppendLine($"   {ucTableName}Repository {lcTableName}Repository = new(_httpContextAccessor);");
             template.AppendLine($"   var content = {lcTableName}Repository.GetExcel();");
-            template.AppendLine("   return File(content,\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\"roles.xlsx\");");
+
+            Random random = new();
+            var fileName = lcTableName + random.Next(1, 100);
+
+            template.AppendLine($"   return File(content,\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\"{fileName}.xlsx\");");
             template.AppendLine("  }");
             template.AppendLine("  [HttpPost]");
             template.AppendLine("  public ActionResult Post()");
@@ -230,16 +264,54 @@ namespace RebelCmsGenerator
             template.AppendLine("            var status = false;");
             template.AppendLine("            var mode = Request.Form[\"mode\"];");
             template.AppendLine("            var leafCheckKey = Convert.ToInt32(Request.Form[\"leafCheckKey\"]);");
-            // here we loop  the best check string is not null 
-            template.AppendLine("            var roleName = Request.Form[\"roleName\"];");
-            template.AppendLine("            var roleKey = Request.Form[\"roleKey\"];");
+
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+                if (GetNumberDataType().Contains(Type))
+                {
+                    template.AppendLine($"int {GetStringNoUnderScore(Field, (int)TextCase.UcWords)} =  !string.IsNullOrEmpty(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"])?Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"]:0");
+                    template.AppendLine("");
+                }
+                else if (GetDateDataType().Contains(Type))
+                {
+                    if (Type.ToString().Contains("DateTime"))
+                    {
+                        template.AppendLine($" DateTime {GetStringNoUnderScore(Field, (int)TextCase.LcWords)} = DateTime.MinValue;");
+                        template.AppendLine($"if (!string.IsNullOrEmpty(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"]))");
+                        template.AppendLine("{");
+                        template.AppendLine($"if (DateTime.TryParseExact(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"], formats,new CultureInfo(\"en-US\"),DateTimeStyles.None,out dateValue));");
+                        template.AppendLine("}");
+                    }
+                    else
+                    {
+                        template.AppendLine($"int {GetStringNoUnderScore(Field, (int)TextCase.UcWords)} =  !string.IsNullOrEmpty(Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\")?Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"]:0");
+                    }
+                }
+                else
+                {
+                    template.AppendLine($"            var {GetStringNoUnderScore(Field, (int)TextCase.LcWords)} = Request.Form[\"{GetStringNoUnderScore(Field, (int)TextCase.LcWords)}\"];");
+                }
+
+
+            }
+
             // end loop 
             template.AppendLine("            var search = Request.Form[\"search\"];");
 
-            template.AppendLine($"            {ucTableName}Repository {lcTableName}Repository = new(_httpContextAccessor);");
+            template.AppendLine($"           {ucTableName}Repository {lcTableName}Repository = new(_httpContextAccessor);");
             template.AppendLine("            SharedUtil sharedUtil = new(_httpContextAccessor);");
             template.AppendLine("            CheckAccessUtil checkAccessUtil = new (_httpContextAccessor);");
-            template.AppendLine($"            List<{ucTableName}Model> data = new();");
+            template.AppendLine($"           List<{ucTableName}Model> data = new();");
 
             template.AppendLine("            string code;");
             template.AppendLine("            var lastInsertKey = 0;");
@@ -257,10 +329,10 @@ namespace RebelCmsGenerator
             template.AppendLine($"                            {ucTableName}Model {lcTableName}Model = new()");
             // start loop
             template.AppendLine("                            {");
-            template.AppendLine("                                RoleName = roleName");
+            template.Append(modelString);
             template.AppendLine("                            };");
             // end loop
-            template.AppendLine($"                            lastInsertKey = {lcTableName}Repository.Create(roleModel);");
+            template.AppendLine($"                           lastInsertKey = {lcTableName}Repository.Create({lcTableName}Model);");
             template.AppendLine("                            code = ((int)ReturnCodeEnum.CREATE_SUCCESS).ToString();");
             template.AppendLine("                            status = true;");
             template.AppendLine("                        }");
@@ -279,7 +351,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                    {");
             template.AppendLine("                        try");
             template.AppendLine("                        {");
-            template.AppendLine($"                            data = {lcTableName}Repository.Read();");
+            template.AppendLine($"                           data = {lcTableName}Repository.Read();");
             template.AppendLine("                            code = ((int)ReturnCodeEnum.CREATE_SUCCESS).ToString();");
             template.AppendLine("                            status = true;");
             template.AppendLine("                        }");
@@ -298,7 +370,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                    {");
             template.AppendLine("                        try");
             template.AppendLine("                        {");
-            template.AppendLine($"                            data = {lcTableName}Repository.Search(search);");
+            template.AppendLine($"                           data = {lcTableName}Repository.Search(search);");
             template.AppendLine("                            code = ((int)ReturnCodeEnum.READ_SUCCESS).ToString();");
             template.AppendLine("                            status = true;");
             template.AppendLine("                        }");
@@ -319,12 +391,9 @@ namespace RebelCmsGenerator
             template.AppendLine("                        {");
             template.AppendLine($"                            {ucTableName}Model {lcTableName}Model = new()");
             // start loop
-            template.AppendLine("                            {");
-            template.AppendLine("                                RoleName = roleName,");
-            template.AppendLine("                                RoleKey = Convert.ToInt32(roleKey)");
-            template.AppendLine("                            };");
+            template.Append(modelString);
             // end loop
-            template.AppendLine($"                            {lcTableName}Repository.Update(roleModel);");
+            template.AppendLine($"                            {lcTableName}Repository.Update({lcTableName}Model);");
             template.AppendLine("                            code = ((int)ReturnCodeEnum.UPDATE_SUCCESS).ToString();");
             template.AppendLine("                            status = true;");
             template.AppendLine("                        }");
@@ -346,10 +415,10 @@ namespace RebelCmsGenerator
             template.AppendLine($"                            {ucTableName}Model {lcTableName}Model = new()");
             // start loop
             template.AppendLine("                            {");
-            template.AppendLine($"                                {ucTableName}Key = Convert.ToInt32({lcTableName}Key)");
+            template.AppendLine($"                                {ucTableName}Key = ({lcTableName}Key");
             template.AppendLine("                            };");
             // end loop
-            template.AppendLine($"                            {lcTableName}Repository.Delete(roleModel);");
+            template.AppendLine($"                            {lcTableName}Repository.Delete({lcTableName}Model);");
             template.AppendLine("                            code = ((int)ReturnCodeEnum.DELETE_SUCCESS).ToString();");
             template.AppendLine("                            status = true;");
             template.AppendLine("                        }");
@@ -381,6 +450,8 @@ namespace RebelCmsGenerator
             var ucTableName = GetStringNoUnderScore(tableName, (int)TextCase.UcWords);
             var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
+            List<string?> fieldNameList = describeTableModels.Select(x => x.FieldValue).ToList();
+
             StringBuilder template = new();
 
             template.AppendLine("@inject Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor");
@@ -473,11 +544,25 @@ namespace RebelCmsGenerator
             template.AppendLine("                        <table class=\"table table-bordered table-striped table-condensed table-hover\" id=\"tableData\">");
             template.AppendLine("                            <thead>");
             template.AppendLine("                                <tr>");
-            template.AppendLine("                                    <td>");
-            template.AppendLine("                                        <label>");
-            template.AppendLine("                                            <input type=\"text\" name=\"roleName\" id=\"roleName\" class=\"form-control\" />");
-            template.AppendLine("                                        </label>");
-            template.AppendLine("                                    </td>");
+            // loop here
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+                template.AppendLine("                                    <td>");
+                template.AppendLine("                                        <label>");
+                template.AppendLine("                                            <input type=\"text\" name=\"roleName\" id=\"roleName\" class=\"form-control\" />");
+                template.AppendLine("                                        </label>");
+                template.AppendLine("                                    </td>");
+            }
+            // end loop
             template.AppendLine("                                    <td style=\"text-align: center\">");
             template.AppendLine("                                        <Button type=\"button\" class=\"btn btn-info\" onclick=\"createRecord()\">");
             template.AppendLine("                                            <i class=\"fa fa-newspaper\"></i>&nbsp;&nbsp;CREATE");
@@ -494,12 +579,24 @@ namespace RebelCmsGenerator
             template.AppendLine("                                {");
             template.AppendLine($"                                    <tr id='role-@row.{lcTableName}Key'>");
             /// loop here 
-            template.AppendLine("                                        <td>");
-            template.AppendLine("                                            <label>");
-            template.AppendLine("                                               <input type=\"text\" class=\"form-control\" name=\"roleName[]\"");
-            template.AppendLine("                                                id=\"roleName-@row.RoleKey\" value=\"@row.RoleName\" />");
-            template.AppendLine("                                            </label>");
-            template.AppendLine("                                        </td>");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+                template.AppendLine("                                        <td>");
+                template.AppendLine("                                            <label>");
+                template.AppendLine("                                               <input type=\"text\" class=\"form-control\" name=\"roleName[]\"");
+                template.AppendLine("                                                id=\"roleName-@row.RoleKey\" value=\"@row.RoleName\" />");
+                template.AppendLine("                                            </label>");
+                template.AppendLine("                                        </td>");
+            }
             // loop here
             template.AppendLine("                                        <td style=\"text-align: center\">");
             template.AppendLine("                                            <div class=\"btn-group\">");
@@ -514,7 +611,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                                       </td>");
             template.AppendLine("                                    </tr>");
             template.AppendLine("                                }");
-            template.AppendLine("                                @if (roleModels.Count == 0)");
+            template.AppendLine($"                                @if ({lcTableName}Models.Count == 0)");
             template.AppendLine("                                {");
             template.AppendLine("                                    <tr>");
             template.AppendLine("                                        <td colspan=\"7\" class=\"noRecord\">");
@@ -530,6 +627,27 @@ namespace RebelCmsGenerator
             template.AppendLine("        </div>");
             template.AppendLine("    </section>");
             template.AppendLine("    <script>");
+            StringBuilder templateField = new();
+            StringBuilder oneLineTemplateField = new();
+            foreach (var fieldName in fieldNameList)
+            {
+                var name = string.Empty;
+                if (fieldName != null)
+                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+
+                if (name.Contains("Id"))
+                {
+                    templateField.Append("row."+name.Replace("Id", "Key")+",");
+                    oneLineTemplateField.Append("row."+name.Replace("Id", "Key")+",");
+                }
+                else
+                {
+                    templateField.Append("row."+name+",");
+                    oneLineTemplateField.Append(name+",");
+                }
+
+                templateField.Append("row."+fieldName+",");
+            };
             template.AppendLine("        function resetRecord() {");
             template.AppendLine("         readRecord();");
             template.AppendLine("         $(\"#search\").val(\"\");");
@@ -538,14 +656,27 @@ namespace RebelCmsGenerator
             template.AppendLine("         return\"<tr><td colspan='4'>It's lonely here</td></tr>\";");
             template.AppendLine("        }");
             // remember to one row template here as function name 
-            template.AppendLine("        function template(roleKey, roleName) {");
+            template.AppendLine("        function template("+oneLineTemplateField.ToString().TrimEnd(',')+") {");
             template.AppendLine("            return \"\" +");
             template.AppendLine($"                \"<tr id='{lcTableName}-\" + {ucTableName}Key + \"'>\" +");
-            template.AppendLine("                \"<td>     \" +");
-            template.AppendLine("                \"<label>\" +");
-            template.AppendLine("                \"<input type='text' class='form-control' name='roleName[]' id='roleName-\" + roleKey + \"' value='\" + roleName + \"' />\" +");
-            template.AppendLine("                \"</label>\" +");
-            template.AppendLine("                \"</td>\" +");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+                template.AppendLine("                \"<td>     \" +");
+                template.AppendLine("                \"<label>\" +");
+                template.AppendLine("                \"<input type='text' class='form-control' name='roleName[]' id='roleName-\" + roleKey + \"' value='\" + roleName + \"' />\" +");
+                template.AppendLine("                \"</label>\" +");
+                template.AppendLine("                \"</td>\" +");
+            }
             template.AppendLine("                \"<td style='text-align: center'><div class='btn-group'>\" +");
             template.AppendLine($"                \"<Button type='button' class='btn btn-warning' onclick='updateRecord(\" + {ucTableName}Key + \")'>\" +");
             template.AppendLine("                \"<i class='fas fa-edit'></i> UPDATE\" +");
@@ -559,6 +690,21 @@ namespace RebelCmsGenerator
             template.AppendLine("        }");
             template.AppendLine("        function createRecord() {");
             // loop here 
+            foreach (var fieldName in fieldNameList)
+            {
+                var name = string.Empty;
+                if (fieldName != null)
+                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+
+                if (name.Contains("Id"))
+                {
+                    template.AppendLine($"         const {name.Replace("Id", "Key")} = $(\"#{name.Replace("Id", "Key")}\");");
+                }
+                else
+                {
+                    template.AppendLine($"         const {name} = $(\"#{name}\");");
+                }
+            }
             template.AppendLine("         const roleName = $(\"#roleName\");");
             // loop here
             template.AppendLine("         $.ajax({");
@@ -569,7 +715,21 @@ namespace RebelCmsGenerator
             template.AppendLine("            mode: 'create',");
             template.AppendLine("            leafCheckKey: @navigationModel.LeafCheckKey,");
             // loop here
-            template.AppendLine("            roleName: roleName.val()");
+            foreach (var fieldName in fieldNameList)
+            {
+                var name = string.Empty;
+                if (fieldName != null)
+                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+
+                if (name.Contains("Id"))
+                {
+                    template.AppendLine($"            {name.Replace("Id", "Key")}: {name.Replace("Id", "Key")}.val()");
+                }
+                else
+                {
+                    template.AppendLine($"            {name}: {name}.val()");
+                }
+            }
             // loop here
             template.AppendLine("           },statusCode: {");
             template.AppendLine("            500: function () {");
@@ -594,7 +754,21 @@ namespace RebelCmsGenerator
             template.AppendLine("               confirmButtonText: 'Cool'");
             template.AppendLine("             });");
             // loop here
-            template.AppendLine("             roleName.val('');");
+            foreach (var fieldName in fieldNameList)
+            {
+                var name = string.Empty;
+                if (fieldName != null)
+                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
+
+                if (name.Contains("Id"))
+                {
+                    template.AppendLine($"            {name.Replace("Id", "Key")}: {name.Replace("Id", "Key")}.val('');");
+                }
+                else
+                {
+                    template.AppendLine("             "+name+".val('');");
+                }
+            }
             // loop here
             template.AppendLine("            } else if (status === false) {");
             template.AppendLine("             if (typeof(code) === 'string'){");
@@ -677,7 +851,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                 for (let i = 0; i < data.data.length; i++) {");
             template.AppendLine("                  row = data.data[i];");
             // remember one line row 
-            template.AppendLine("                  templateStringBuilder += template(row.roleKey, row.roleName);");
+            template.AppendLine("                  templateStringBuilder += template("+templateField.ToString().TrimEnd(',')+");");
             template.AppendLine("                 }");
             template.AppendLine("                 $(\"#tableBody\").html(\"\").html(templateStringBuilder);");
             template.AppendLine("                } else {");
@@ -740,7 +914,7 @@ namespace RebelCmsGenerator
             template.AppendLine("         let row = { roleKey: \"\", folderName: \"\" }");
             template.AppendLine("         $.ajax({");
             template.AppendLine("          type: \"post\",");
-            template.AppendLine("          url: \"api/administrator/role\",");
+            template.AppendLine("          url: \"api/administrator/" + lcTableName + "\",");
             template.AppendLine("          async: false,");
             template.AppendLine("          contentType: \"application/x-www-form-urlencoded\",");
             template.AppendLine("          data: {");
@@ -767,7 +941,8 @@ namespace RebelCmsGenerator
             template.AppendLine("                for (let i = 0; i < data.data.length; i++) {");
             template.AppendLine("                 row = data.data[i];");
             // remember one line row 
-            template.AppendLine("                 templateStringBuilder += template(row.roleKey, row.roleName);");
+          
+            template.AppendLine("                 templateStringBuilder += template("+templateField.ToString().TrimEnd(',')+");");
             template.AppendLine("                }");
             template.AppendLine("                $(\"#tableBody\").html(\"\").html(templateStringBuilder);");
             template.AppendLine("               }");
@@ -823,9 +998,9 @@ namespace RebelCmsGenerator
             template.AppendLine("         });");
             template.AppendLine("        }");
             template.AppendLine("        function excelRecord() {");
-            template.AppendLine("         window.open(\"api/administrator/role\");");
+            template.AppendLine("         window.open(\"api/administrator/" + lcTableName + "\");");
             template.AppendLine("        }");
-            template.AppendLine("        function updateRecord(roleKey) {");
+            template.AppendLine("        function updateRecord(" + lcTableName + "Key) {");
             template.AppendLine("         $.ajax({");
             template.AppendLine("          type: 'POST',");
             template.AppendLine("          url: \"api/administrator/" + lcTableName + "\",");
@@ -834,9 +1009,16 @@ namespace RebelCmsGenerator
             template.AppendLine("           mode: 'update',");
             template.AppendLine("           leafCheckKey: @navigationModel.LeafCheckKey,");
             // loop here
-            template.AppendLine("           roleKey: roleKey,");
+            template.AppendLine("           " + lcTableName + "Key: " + lcTableName + "Key,");
+            // loop not primary
+            foreach (var fieldName in fieldNameList)
+            {
+                var name = string.Empty;
+                if (fieldName != null)
+                    name = GetStringNoUnderScore(name, (int)TextCase.LcWords);
 
-            template.AppendLine("           roleName: $(\"#roleName-\" + roleKey).val()");
+                template.AppendLine($"           {name}: $(\"#{name}-\" + {lcTableName}Key).val()");
+            }
             // loop here
             template.AppendLine("          }, statusCode: {");
             template.AppendLine("           500: function () {");
@@ -918,7 +1100,7 @@ namespace RebelCmsGenerator
             template.AppendLine("          if (result.value) {");
             template.AppendLine("           $.ajax({");
             template.AppendLine("            type: 'POST',");
-            template.AppendLine("            url: \"api/administrator/role\",");
+            template.AppendLine($"            url: \"api/administrator/{lcTableName}\",");
             template.AppendLine("            async: false,");
             template.AppendLine("            data: {");
             template.AppendLine("             mode: 'delete',");
@@ -936,7 +1118,7 @@ namespace RebelCmsGenerator
             template.AppendLine("              let status = data.status;");
             template.AppendLine("              let code = data.code;");
             template.AppendLine("              if (status) {");
-            template.AppendLine("               $(\"#role-\" + roleKey).remove();");
+            template.AppendLine("               $(\"#" + lcTableName + "-\" + " + lcTableName + "Key).remove();");
             template.AppendLine("               Swal.fire(\"System\", \"@SharedUtil.RecordDeleted\", \"success\");");
             template.AppendLine("              } else if (status === false) {");
             template.AppendLine("               if (typeof(code) === 'string'){");
@@ -1025,12 +1207,10 @@ namespace RebelCmsGenerator
                 string Key = string.Empty;
                 string Field = string.Empty;
                 string Type = string.Empty;
-                //  var x = describeTableModel.KeyValue??describeTableModel ; not working yeah
                 if (describeTableModel.KeyValue != null)
                     Key = describeTableModel.KeyValue;
                 if (describeTableModel.FieldValue != null)
                     Field = describeTableModel.FieldValue;
-
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
@@ -1273,10 +1453,11 @@ namespace RebelCmsGenerator
                     updateString.AppendLine(fieldNameList[i]+"=@"+fieldNameList[i]);
 
                 }
-                else {
+                else
+                {
                     updateString.AppendLine(fieldNameList[i]+"=@"+fieldNameList[i]+",");
                 }
-                
+
             }
             template.AppendLine(updateString.ToString().TrimEnd(','));
             // end loop
