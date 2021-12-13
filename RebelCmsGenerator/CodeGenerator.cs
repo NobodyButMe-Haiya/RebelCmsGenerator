@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-
+using System.Diagnostics;
 namespace RebelCmsGenerator
 {
     internal class CodeGenerator
@@ -44,7 +44,7 @@ namespace RebelCmsGenerator
         }
         public static List<string> GetNumberDataType()
         {
-            return new List<string> { "tinyinit", "bool", "boolean", "smallint", "int", "integer", "year" };
+            return new List<string> { "tinyinit", "bool", "boolean", "smallint", "int", "integer", "year","INT","YEAR","SMALLINT","BOOL","BOOLEAN" };
         }
         public static List<string> GetDateDataType()
         {
@@ -156,8 +156,8 @@ namespace RebelCmsGenerator
             var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
             StringBuilder template = new();
-            template.AppendLine($"namespace RebelCmsTemplate.Models.{module};");
-            template.AppendLine("public class " + tableName + "Model{");
+            template.AppendLine($"namespace RebelCmsTemplate.Models.{UpperCaseFirst(module)};");
+            template.AppendLine("public class " + GetStringNoUnderScore(tableName,(int)TextCase.UcWords) + "Model{");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
                 string Key = string.Empty;
@@ -177,19 +177,21 @@ namespace RebelCmsGenerator
                 }
                 else
                 {
-                    if (GetNumberDataType().Contains(Type))
+                   
+                    
+                    if (GetNumberDataType().Any(x => Type.Contains(x)))
                     {
-                        template.AppendLine("private int " + GetStringNoUnderScore(Field, (int)TextCase.UcWords) + " {get,init;}");
+                        template.AppendLine("private int " + UpperCaseFirst(Field) + " {get,init;}");
                     }
-                    else if (GetDateDataType().Contains(Type))
+                    else if (GetDateDataType().Any(x => Type.Contains(x)))
                     {
                         if (Type.ToString().Contains("DateTime"))
                         {
-                            template.AppendLine("private DateTime " + GetStringNoUnderScore(Field, (int)TextCase.UcWords) + " {get,init;}");
+                            template.AppendLine("private DateTime " + UpperCaseFirst(Field) + " {get,init;}");
                         }
                         else
                         {
-                            template.AppendLine("private string? " + GetStringNoUnderScore(Field, (int)TextCase.UcWords) + " {get,init;}");
+                            template.AppendLine("private string? " + UpperCaseFirst(Field) + " {get,init;}");
                         }
                     }
                     else
@@ -292,12 +294,12 @@ namespace RebelCmsGenerator
                 if (Field.Contains("Id"))
                     Field = Field.Replace("Id", "Key");
 
-                if (GetNumberDataType().Contains(Type))
+                if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
                     template.AppendLine($"int  =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Request.Form[\"{Field}\"]:0");
                     template.AppendLine("");
                 }
-                else if (GetDateDataType().Contains(Type))
+                else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
                     if (Type.ToString().Contains("DateTime"))
                     {
@@ -574,7 +576,7 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
-                if (GetNumberDataType().Contains(Type))
+                if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
                     template.AppendLine("                                    <td>");
                     template.AppendLine("                                        <label>");
@@ -582,7 +584,7 @@ namespace RebelCmsGenerator
                     template.AppendLine("                                        </label>");
                     template.AppendLine("                                    </td>");
                 }
-                else if (GetDateDataType().Contains(Type))
+                else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
                     if (Type.ToString().Contains("DateTime"))
                     {
@@ -649,7 +651,7 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
-                if (GetNumberDataType().Contains(Type))
+                if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
                     template.AppendLine("                                    <td>");
                     template.AppendLine("                                        <label>");
@@ -657,7 +659,7 @@ namespace RebelCmsGenerator
                     template.AppendLine("                                        </label>");
                     template.AppendLine("                                    </td>");
                 }
-                else if (GetDateDataType().Contains(Type))
+                else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
                     if (Type.ToString().Contains("DateTime"))
                     {
@@ -783,7 +785,7 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
-                if (GetNumberDataType().Contains(Type))
+                if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
                     template.AppendLine("                                    \"<td>\" +");
                     template.AppendLine("                                        \"<label>\" +");
@@ -791,7 +793,7 @@ namespace RebelCmsGenerator
                     template.AppendLine("                                        \"</label>\" +");
                     template.AppendLine("                                    \"</td>\" +");
                 }
-                else if (GetDateDataType().Contains(Type))
+                else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
                     if (Type.ToString().Contains("DateTime"))
                     {
