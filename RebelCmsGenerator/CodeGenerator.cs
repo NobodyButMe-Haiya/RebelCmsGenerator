@@ -44,12 +44,17 @@ namespace RebelCmsGenerator
         }
         public static List<string> GetNumberDataType()
         {
-            return new List<string> { "tinyinit", "bool", "boolean", "smallint", "int", "integer", "year","INT","YEAR","SMALLINT","BOOL","BOOLEAN" };
+            return new List<string> { "tinyinit", "bool", "boolean", "smallint", "int", "integer", "year", "INT", "YEAR", "SMALLINT", "BOOL", "BOOLEAN" };
+        }
+        public static List<string> GetNumberDotDataType()
+        {
+            return new List<string> { "decimal", "float", "double" };
         }
         public static List<string> GetDateDataType()
         {
             return new List<string> { "date", "datetime", "timestamp", "time" };
         }
+
         public static List<string> GetDateFormatUsa()
         {
             return new List<string> {
@@ -157,7 +162,8 @@ namespace RebelCmsGenerator
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
             StringBuilder template = new();
             template.AppendLine($"namespace RebelCmsTemplate.Models.{UpperCaseFirst(module)};");
-            template.AppendLine("public class " + GetStringNoUnderScore(tableName,(int)TextCase.UcWords) + "Model{");
+            template.AppendLine("public class " + GetStringNoUnderScore(tableName, (int)TextCase.UcWords) + "Model");
+            template.AppendLine("{");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
                 string Key = string.Empty;
@@ -173,30 +179,30 @@ namespace RebelCmsGenerator
                 if (Key.Equals("PRI") || Key.Equals("MUL"))
                 {
                     if (Field != null)
-                        template.AppendLine("private int " + UpperCaseFirst(Field.Replace("Id", "Key")) + "Key {get,init;}");
+                        template.AppendLine("\tprivate int " + UpperCaseFirst(Field.Replace("Id", "Key")) + " { get; init; } ");
                 }
                 else
                 {
-                   
-                    
+
+
                     if (GetNumberDataType().Any(x => Type.Contains(x)))
                     {
-                        template.AppendLine("private int " + UpperCaseFirst(Field) + " {get,init;}");
+                        template.AppendLine("\tprivate int " + UpperCaseFirst(Field) + " { get; init; } ");
                     }
                     else if (GetDateDataType().Any(x => Type.Contains(x)))
                     {
                         if (Type.ToString().Contains("DateTime"))
                         {
-                            template.AppendLine("private DateTime " + UpperCaseFirst(Field) + " {get,init;}");
+                            template.AppendLine("\tprivate DateTime " + UpperCaseFirst(Field) + "  { get; init; } ");
                         }
                         else
                         {
-                            template.AppendLine("private string? " + UpperCaseFirst(Field) + " {get,init;}");
+                            template.AppendLine("\tprivate string? " + UpperCaseFirst(Field) + " { get; init; } ");
                         }
                     }
                     else
                     {
-                        template.AppendLine("private string? " + UpperCaseFirst(Field) + " {get,init;}");
+                        template.AppendLine("\tprivate string? " + UpperCaseFirst(Field) + " { get; init; } ");
                     }
 
                 }
@@ -217,7 +223,7 @@ namespace RebelCmsGenerator
             StringBuilder template = new();
             StringBuilder createModelString = new();
             StringBuilder updateModelString = new();
-            int counter =1;
+            int counter = 1;
             foreach (var fieldName in fieldNameList)
             {
                 var name = string.Empty;
@@ -239,7 +245,7 @@ namespace RebelCmsGenerator
 
                     updateModelString.AppendLine($"{name} = {name},");
                 }
-                counter++;  
+                counter++;
             }
 
             template.AppendLine($"namespace RebelCmsTemplate.Controllers.Api.{module};\n");
@@ -1358,7 +1364,17 @@ namespace RebelCmsGenerator
             List<string?> fieldNameParameter = new();
             foreach (var fieldName in fieldNameList)
             {
-                fieldNameParameter.Add("@"+fieldName);
+                if (fieldName != null)
+                {
+                    if (fieldName.Equals(lcTableName+"Id"))
+                    {
+                        fieldNameParameter.Add("null");
+                    }
+                    else
+                    {
+                        fieldNameParameter.Add("@"+fieldName);
+                    }
+                }
             };
             var sqlBindParamFieldName = String.Join(',', fieldNameParameter);
 
@@ -1378,19 +1394,53 @@ namespace RebelCmsGenerator
                 List<string> keyValue = new() { "PRI", "MUL" };
                 if (keyValue.Contains(Key))
                 {
-                    loopColumn.AppendLine("                    new ()");
-                    loopColumn.AppendLine("                    {");
-                    loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
-                    loopColumn.AppendLine("                        Value = "+UpperCaseFirst(Field)+"Model."+UpperCaseFirst(Field.Replace("Id", "Key")));
-                    loopColumn.AppendLine("                    },");
+                    if (Key  != "PRI")
+                    {
+                        if (Field.Equals("tenantId"))
+                        {
+                            loopColumn.AppendLine("                    new ()");
+                            loopColumn.AppendLine("                    {");
+                            loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                            loopColumn.AppendLine("                        Value = _sharedUtil.GetTenantId()");
+                            loopColumn.AppendLine("                    },");
+                        }
+                        else
+                        {
+
+                            loopColumn.AppendLine("                    new ()");
+                            loopColumn.AppendLine("                    {");
+                            loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                            loopColumn.AppendLine("                        Value = "+lcTableName+"Model."+UpperCaseFirst(Field.Replace("Id", "Key")));
+                            loopColumn.AppendLine("                    },");
+                        }
+                    }
                 }
                 else
                 {
-                    loopColumn.AppendLine("                    new ()");
-                    loopColumn.AppendLine("                    {");
-                    loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
-                    loopColumn.AppendLine("                        Value = "+UpperCaseFirst(Field)+"Model."+UpperCaseFirst(Field));
-                    loopColumn.AppendLine("                    },");
+                    if (Field.Equals("isDelete"))
+                    {
+                        loopColumn.AppendLine("                    new ()");
+                        loopColumn.AppendLine("                    {");
+                        loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                        loopColumn.AppendLine("                        Value = 0");
+                        loopColumn.AppendLine("                    },");
+                    }
+                    else if (Field.Equals("executeBy"))
+                    {
+                        loopColumn.AppendLine("                    new ()");
+                        loopColumn.AppendLine("                    {");
+                        loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                        loopColumn.AppendLine("                        Value = _sharedUtil.GetUserName()");
+                        loopColumn.AppendLine("                    },");
+                    }
+                    else
+                    {
+                        loopColumn.AppendLine("                    new ()");
+                        loopColumn.AppendLine("                    {");
+                        loopColumn.AppendLine("                        Key = \"@"+Field+"\",");
+                        loopColumn.AppendLine("                        Value = "+lcTableName+"Model."+UpperCaseFirst(Field));
+                        loopColumn.AppendLine("                    },");
+                    }
                 }
             }
 
@@ -1415,7 +1465,6 @@ namespace RebelCmsGenerator
             template.AppendLine("        }");
             template.AppendLine("        public int Create("+ucTableName+"Model "+lcTableName+"Model)");
             template.AppendLine("        {");
-            template.AppendLine("            // okay next we create skeleton for the code");
             template.AppendLine("            var lastInsertKey = 0;");
             template.AppendLine("            string sql = string.Empty;");
             template.AppendLine("            List<ParameterModel> parameterModels = new ();");
@@ -1473,11 +1522,55 @@ namespace RebelCmsGenerator
 
             template.AppendLine("                        "+ucTableName+"Models.Add(new "+lcTableName+"Model");
             template.AppendLine("                       {");
-            // start loop here
-            template.AppendLine("                            TenantName = reader[\"tenantName\"].ToString(),");
-            template.AppendLine("                            TenantKey = Convert.ToInt32(reader[\"tenantId\"])");
-            template.AppendLine("                        });");
-            // end loop here
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+
+                if (GetNumberDataType().Any(x => Type.Contains(x)))
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                }
+                else if (Type.Equals("double") || Type.Equals("float"))
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDouble(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                }
+                else if (Type.Equals("decimal"))
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDecimal(reader[\""+LowerCaseFirst(Field)+"\"]),");
+
+                }
+                else if (GetDateDataType().Any(x => Type.Contains(x)))
+                {
+
+                    if (Type.ToString().Contains("DateTime") || Type.ToString().Contains("Date"))
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    }
+                    else if (Type.ToString().Contains("Year"))
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.DateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    }
+                    else
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = (reader[\""+LowerCaseFirst(Field)+"\"].ToString(),");
+                    }
+                }
+                else
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = reader[\""+LowerCaseFirst(Field)+"\"].ToString(),");
+                }
+
+            }
+            template.AppendLine("});");
             template.AppendLine("                    }");
             template.AppendLine("                }");
             template.AppendLine("                mySqlCommand.Dispose();");
@@ -1523,13 +1616,57 @@ namespace RebelCmsGenerator
             template.AppendLine("                {");
             template.AppendLine("                    while (reader.Read())");
             template.AppendLine("                   {");
-            template.AppendLine("                         " + ucTableName + "Models.Add(new " + lcTableName + "Model");
-            // loop start
-            template.AppendLine("                        {");
-            template.AppendLine("                            TenantName = reader[\"tenantName\"].ToString(),");
-            template.AppendLine("                            TenantKey = Convert.ToInt32(reader[\"tenantId\"])");
-            template.AppendLine("                       });");
-            // loop end
+            template.AppendLine("                        "+ucTableName+"Models.Add(new "+lcTableName+"Model");
+            template.AppendLine("                       {");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+
+                if (GetNumberDataType().Any(x => Type.Contains(x)))
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                }
+                else if (Type.Equals("double") || Type.Equals("float"))
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDouble(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                }
+                else if (Type.Equals("decimal"))
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDecimal(reader[\""+LowerCaseFirst(Field)+"\"]),");
+
+                }
+                else if (GetDateDataType().Any(x => Type.Contains(x)))
+                {
+
+                    if (Type.ToString().Contains("DateTime") || Type.ToString().Contains("Date"))
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    }
+                    else if (Type.ToString().Contains("Year"))
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.DateTime(reader[\""+LowerCaseFirst(Field)+"\"]),") ;
+                    }
+                    else
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = (reader[\""+LowerCaseFirst(Field)+"\"].ToString(),");
+                    }
+                }
+                else
+                {
+                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = reader[\""+LowerCaseFirst(Field)+"\"].ToString(),");
+                }
+
+            }
+            template.AppendLine("});");
             template.AppendLine("                    }");
             template.AppendLine("                }");
             template.AppendLine("                mySqlCommand.Dispose();");
@@ -1709,7 +1846,7 @@ namespace RebelCmsGenerator
                 return string.Empty;
             }
             // Return char and concat substring.
-            return char.ToUpper(s[0]) + s[1..];
+            return char.ToLower(s[0]) + s[1..];
         }
         private static string SplitToUnderScore(string s)
         {
