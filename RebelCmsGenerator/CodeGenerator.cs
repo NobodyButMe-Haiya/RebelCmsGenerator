@@ -179,7 +179,7 @@ namespace RebelCmsGenerator
                 if (Key.Equals("PRI") || Key.Equals("MUL"))
                 {
                     if (Field != null)
-                        template.AppendLine("\tprivate int " + UpperCaseFirst(Field.Replace("Id", "Key")) + " { get; init; } ");
+                        template.AppendLine("\tpublic int " + UpperCaseFirst(Field.Replace("Id", "Key")) + " { get; init; } ");
                 }
                 else
                 {
@@ -187,22 +187,38 @@ namespace RebelCmsGenerator
 
                     if (GetNumberDataType().Any(x => Type.Contains(x)))
                     {
-                        template.AppendLine("\tprivate int " + UpperCaseFirst(Field) + " { get; init; } ");
+                        template.AppendLine("\tpublic int " + UpperCaseFirst(Field) + " { get; init; } ");
+                    }
+                    else if (Type.Contains("decimal"))
+                    {
+                        template.AppendLine("\tpublic decimal " + UpperCaseFirst(Field) + " { get; init; } ");
+                    }
+                    else if (Type.Equals("double") || Type.Equals("float"))
+                    {
+                        template.AppendLine("\tpublic double " + UpperCaseFirst(Field) + " { get; init; } ");
                     }
                     else if (GetDateDataType().Any(x => Type.Contains(x)))
                     {
-                        if (Type.ToString().Contains("DateTime"))
+                        if (Type.Equals("datetime"))
                         {
-                            template.AppendLine("\tprivate DateTime " + UpperCaseFirst(Field) + "  { get; init; } ");
+                            template.AppendLine("\tpublic DateTime " + UpperCaseFirst(Field) + "  { get; init; } ");
+                        }
+                        else if (Type.Equals("date"))
+                        {
+                            template.AppendLine("\tpublic DateTime " + UpperCaseFirst(Field) + " { get; init; } ");
+                        }
+                        else if (Type.Equals("year"))
+                        {
+                            template.AppendLine("\tpublic int " + UpperCaseFirst(Field) + " { get; init; } ");
                         }
                         else
                         {
-                            template.AppendLine("\tprivate string? " + UpperCaseFirst(Field) + " { get; init; } ");
+                            template.AppendLine("\tpublic string? " + UpperCaseFirst(Field) + " { get; init; } ");
                         }
                     }
                     else
                     {
-                        template.AppendLine("\tprivate string? " + UpperCaseFirst(Field) + " { get; init; } ");
+                        template.AppendLine("\tpublic string? " + UpperCaseFirst(Field) + " { get; init; } ");
                     }
 
                 }
@@ -235,20 +251,25 @@ namespace RebelCmsGenerator
                 }
                 if (counter == fieldNameList.Count)
                 {
-                    updateModelString.AppendLine($"{name} = {name}");
-                    createModelString.AppendLine($"{name} = {name}");
+                    updateModelString.AppendLine($"\t\t\t{UpperCaseFirst(name)} = {LowerCaseFirst(name)}");
+                    createModelString.AppendLine($"\t\t\t{UpperCaseFirst(name)} = {LowerCaseFirst(name)}");
                 }
                 else
                 {
                     if (!name.Equals(lcTableName+"Key"))
-                        createModelString.AppendLine($"{name} = {name},");
+                        createModelString.AppendLine($"\t\t\t{UpperCaseFirst(name)} = {LowerCaseFirst(name)},");
 
-                    updateModelString.AppendLine($"{name} = {name},");
+                    updateModelString.AppendLine($"\t\t\t{UpperCaseFirst(name)} = {LowerCaseFirst(name)},");
                 }
                 counter++;
             }
-
-            template.AppendLine($"namespace RebelCmsTemplate.Controllers.Api.{module};\n");
+            template.AppendLine("using Microsoft.AspNetCore.Mvc;");
+            template.AppendLine("using RebelCmsTemplate.Enum;");
+            template.AppendLine($"using RebelCmsTemplate.Models.{module};");
+            template.AppendLine($"using RebelCmsTemplate.Repository.{module};");
+            template.AppendLine("using RebelCmsTemplate.Util;");
+            template.AppendLine("using System.Globalization;");
+            template.AppendLine($"namespace RebelCmsTemplate.Controllers.Api.{module};");
             template.AppendLine($"[Route(\"api/{module.ToLower()}/[controller]\")]");
             template.AppendLine("[ApiController]");
             template.AppendLine("public class " + ucTableName + "Controller : Controller {");
@@ -281,9 +302,9 @@ namespace RebelCmsGenerator
             template.AppendLine("  [HttpPost]");
             template.AppendLine("  public ActionResult Post()");
             template.AppendLine("  {");
-            template.AppendLine("            var status = false;");
-            template.AppendLine("            var mode = Request.Form[\"mode\"];");
-            template.AppendLine("            var leafCheckKey = Convert.ToInt32(Request.Form[\"leafCheckKey\"]);");
+            template.AppendLine("\tvar status = false;");
+            template.AppendLine("\tvar mode = Request.Form[\"mode\"];");
+            template.AppendLine("\tvar leafCheckKey = Convert.ToInt32(Request.Form[\"leafCheckKey\"]);");
 
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
@@ -302,27 +323,41 @@ namespace RebelCmsGenerator
 
                 if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
-                    template.AppendLine($"int  =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Request.Form[\"{Field}\"]:0");
-                    template.AppendLine("");
+                    template.AppendLine($"\tint {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Convert.ToInt32(Request.Form[\"{Field}\"]):0;");
                 }
                 else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
-                    if (Type.ToString().Contains("DateTime"))
+                    if (Type.ToString().Contains("datetime") || Type.ToString().Contains("date"))
                     {
-                        template.AppendLine($" DateTime {Field} = DateTime.MinValue;");
-                        template.AppendLine($"if (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
-                        template.AppendLine("{");
-                        template.AppendLine($"if (DateTime.TryParseExact(Request.Form[\"{Field}\"], formats,new CultureInfo(\"en-US\"),DateTimeStyles.None,out dateValue));");
-                        template.AppendLine("}");
+                        var format = (Type.ToString().Contains("datetime")) ? "yyyy-MM-dd HH: mm" : "yyyy-MM-dd";
+                        template.AppendLine($"\tDateTime {Field} = DateTime.MinValue;");
+                        template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
+                        template.AppendLine("\t{");
+                        template.AppendLine($"\tif (DateTime.TryParseExact(Request.Form[\"{Field}\"], \""+format+"\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out "+Field+" ));");
+                        template.AppendLine("\t}");
+                    }
+                    else if (Type.ToString().Contains("year"))
+                    {
+                        template.AppendLine($"\tint {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Convert.ToInt32(Request.Form[\"{Field}\"]):0;");
                     }
                     else
                     {
-                        template.AppendLine($"int {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\")?Request.Form[\"{Field}\"]:0");
+                        template.AppendLine($"\tint {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Convert.ToInt32(Request.Form[\"{Field}\"]):0;");
                     }
+                }
+                else if (Type.Contains("double") || Type.Contains("float"))
+                {
+                    template.AppendLine($"\tdouble {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Convert.ToDouble(Request.Form[\"{Field}\"]):0;");
+
+                }
+                else if (Type.Contains("decimal"))
+                {
+                    template.AppendLine($"\tdecimal {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Convert.ToDecimal(Request.Form[\"{Field}\"]):0.00;");
+
                 }
                 else
                 {
-                    template.AppendLine($"            var {Field} = Request.Form[\"{Field}\"];");
+                    template.AppendLine($"\tvar {Field} = Request.Form[\"{Field}\"];");
                 }
 
 
@@ -466,7 +501,6 @@ namespace RebelCmsGenerator
             template.AppendLine("        }");
             template.AppendLine("     ");
             template.AppendLine("    }");
-            template.AppendLine("}");
 
             return template.ToString();
         }
@@ -581,8 +615,37 @@ namespace RebelCmsGenerator
                     Field = describeTableModel.FieldValue;
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
+                if (Key.Equals("PRI"))
+                {
+                    // do nothing here 
 
-                if (GetNumberDataType().Any(x => Type.Contains(x)))
+                }
+                else if (Key.Equals("MUL"))
+                {
+                    if (!Field.Equals("tenantId"))
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <select name=\"{Field}\" id=\"{Field}\" class=\"form-control\">");
+                        template.AppendLine($"                                              @if ({Field.Replace("Id", "")}Models.Count == 0)");
+                        template.AppendLine("                                                {");
+                        template.AppendLine("                                                  <option value=\"\">Please Create A New field </option>");
+                        template.AppendLine("                                                }");
+                        template.AppendLine("                                                else");
+                        template.AppendLine("                                                {");
+                        template.AppendLine($"                                                foreach (var row"+UpperCaseFirst(Field.Replace("Id", ""))+" in "+LowerCaseFirst(Field.Replace("Id", ""))+"Models)");
+                        template.AppendLine("                                                {");
+                        template.AppendLine($"                                                   <option value=\"@row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"yKey\">");
+                        template.AppendLine("                                                   @row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Name</option>");
+                        template.AppendLine("                                                }");
+                        template.AppendLine("                                               }");
+
+                        template.AppendLine("                                             </select>");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+                }
+                else if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
                     template.AppendLine("                                    <td>");
                     template.AppendLine("                                        <label>");
@@ -641,9 +704,9 @@ namespace RebelCmsGenerator
             template.AppendLine("                                </tr>");
             template.AppendLine("                            </thead>");
             template.AppendLine("                            <tbody id=\"tableBody\">");
-            template.AppendLine($"                                @foreach (var row in {ucTableName}Models)");
+            template.AppendLine($"                                @foreach (var row in {lcTableName}Models)");
             template.AppendLine("                                {");
-            template.AppendLine($"                                    <tr id='role-@row.{lcTableName}Key'>");
+            template.AppendLine($"                                    <tr id='role-@row.{ucTableName}Key'>");
             /// loop here 
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
@@ -656,12 +719,48 @@ namespace RebelCmsGenerator
                     Field = describeTableModel.FieldValue;
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
+                if (Key.Equals("PRI"))
+                {
+                    // do nothing here 
 
-                if (GetNumberDataType().Any(x => Type.Contains(x)))
+                }
+                else if (Key.Equals("MUL"))
+                {
+                    if (!Field.Equals("tenantId"))
+                    {
+                        template.AppendLine("                                    <td>");
+                        template.AppendLine("                                        <label>");
+                        template.AppendLine($"                                            <select name=\"{Field}\" id=\"{Field}\" class=\"form-control\">");
+                        template.AppendLine($"                                              @if ({Field.Replace("Id", "")}Models.Count == 0)");
+                        template.AppendLine("                                                {");
+                        template.AppendLine("                                                  <option value=\"\">Please Create A New field </option>");
+                        template.AppendLine("                                                }");
+                        template.AppendLine("                                                else");
+                        template.AppendLine("                                                {");
+                        template.AppendLine("foreach (var option in from row"+UpperCaseFirst(Field.Replace("Id", ""))+" in "+LowerCaseFirst(Field.Replace("Id", ""))+"Models");
+                        template.AppendLine("                        let selected = row"+UpperCaseFirst(Field.Replace("Id", ""))+" in "+UpperCaseFirst(Field.Replace("Id", ""))+"Key ==");
+                        template.AppendLine("                       row."+UpperCaseFirst(Field.Replace("Id",""))+"Key");
+                        template.AppendLine("                       select selected ? Html.Raw(\"<option value='\" +");
+                        template.AppendLine("                       row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Key + \"' selected>\" +");
+                        template.AppendLine("                       row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Name + \"</option>\") :");
+                        template.AppendLine("                       Html.Raw(\"<option value=\\\"\" + row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Key +");
+                        template.AppendLine("                       \"\\\">\" + row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Name + \"</option>\"))");
+                       template.AppendLine(" {");
+                        template.AppendLine("     @option");
+                        template.AppendLine("                                  }");
+                        template.AppendLine("                                               }");
+
+                        template.AppendLine("                                             </select>");
+                        template.AppendLine("                                        </label>");
+                        template.AppendLine("                                    </td>");
+                    }
+
+                }
+                else if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
                     template.AppendLine("                                    <td>");
                     template.AppendLine("                                        <label>");
-                    template.AppendLine($"                                            <input type=\"number\" name=\"{Field}[]\" id=\"{Field}\"  value=\"@row.{Field}\" class=\"form-control\" />");
+                    template.AppendLine($"                                            <input type=\"number\" name=\"{Field}[]\" id=\"{Field}\"  value=\"@row.{UpperCaseFirst(Field)}\" class=\"form-control\" />");
                     template.AppendLine("                                        </label>");
                     template.AppendLine("                                    </td>");
                 }
@@ -671,7 +770,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    <td>");
                         template.AppendLine("                                        <label>");
-                        template.AppendLine($"                                            <input type=\"datetime-local\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                        template.AppendLine($"                                            <input type=\"datetime-local\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{UpperCaseFirst(Field)}\" class=\"form-control\" />");
                         template.AppendLine("                                        </label>");
                         template.AppendLine("                                    </td>");
                     }
@@ -679,7 +778,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    <td>");
                         template.AppendLine("                                        <label>");
-                        template.AppendLine($"                                            <input type=\"date\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                        template.AppendLine($"                                            <input type=\"date\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{UpperCaseFirst(Field)}\" class=\"form-control\" />");
                         template.AppendLine("                                        </label>");
                         template.AppendLine("                                    </td>");
                     }
@@ -687,7 +786,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    <td>");
                         template.AppendLine("                                        <label>");
-                        template.AppendLine($"                                            <input type=\"text\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                        template.AppendLine($"                                            <input type=\"text\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{UpperCaseFirst(Field)}\" class=\"form-control\" />");
                         template.AppendLine("                                        </label>");
                         template.AppendLine("                                    </td>");
                     }
@@ -696,7 +795,7 @@ namespace RebelCmsGenerator
                 {
                     template.AppendLine("                                    <td>");
                     template.AppendLine("                                        <label>");
-                    template.AppendLine($"                                            <input type=\"text\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{Field}\" class=\"form-control\" />");
+                    template.AppendLine($"                                            <input type=\"text\" name=\"{Field}[]\" id=\"{Field}\" value=\"@row.{UpperCaseFirst(Field)}\" class=\"form-control\" />");
                     template.AppendLine("                                        </label>");
                     template.AppendLine("                                    </td>");
                 }
@@ -795,7 +894,7 @@ namespace RebelCmsGenerator
                 {
                     template.AppendLine("                                    \"<td>\" +");
                     template.AppendLine("                                        \"<label>\" +");
-                    template.AppendLine($"                                            \"<input type='number' name='{Field}[]' id='{Field}'  value='@row.{Field}' class='form-control' />\" +");
+                    template.AppendLine("                                            \"<input type='number' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' class='form-control' />\" +");
                     template.AppendLine("                                        \"</label>\" +");
                     template.AppendLine("                                    \"</td>\" +");
                 }
@@ -805,7 +904,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    \"<td>\" +");
                         template.AppendLine("                                        \"<label>\" +");
-                        template.AppendLine($"                                            \"<input type='datetime-local' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                        template.AppendLine("                                            \"<input type='datetime-local' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' class='form-control' />\" +");
                         template.AppendLine("                                        \"</label>\" +");
                         template.AppendLine("                                    \"</td>\" +");
                     }
@@ -813,7 +912,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    \"<td>\" +");
                         template.AppendLine("                                        \"<label>\" +");
-                        template.AppendLine($"                                            \"<input type='date' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                        template.AppendLine("                                            \"<input type='date' name='"+Field+"[]' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' value='@row.{Field}' class='form-control' />\" +");
                         template.AppendLine("                                        \"</label>\" +");
                         template.AppendLine("                                    \"</td>\" +");
                     }
@@ -821,7 +920,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    \"<td>\" +");
                         template.AppendLine("                                        \"<label>\" +");
-                        template.AppendLine($"                                            \"<input type='text' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                        template.AppendLine("                                            \"<input type='text' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' class='form-control' />\" +");
                         template.AppendLine("                                        \"</label>");
                         template.AppendLine("                                    \"</td>\" +\" +");
                     }
@@ -830,7 +929,7 @@ namespace RebelCmsGenerator
                 {
                     template.AppendLine("                                    \"<td>\" +");
                     template.AppendLine("                                        \"<label>\" +");
-                    template.AppendLine($"                                            \"<input type='text' name='{Field}[]' id='{Field}' value='@row.{Field}' class='form-control' />\" +");
+                    template.AppendLine($"                                            \"<input type='text' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' class='form-control' />\" +");
                     template.AppendLine("                                        \"</label>\" +");
                     template.AppendLine("                                    \"</td>\" +");
                 }
@@ -1520,7 +1619,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                    while (reader.Read())");
             template.AppendLine("                    {");
 
-            template.AppendLine("                        "+ucTableName+"Models.Add(new "+lcTableName+"Model");
+            template.AppendLine("                        "+lcTableName+"Models.Add(new "+ucTableName+"Model");
             template.AppendLine("                       {");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
@@ -1537,13 +1636,20 @@ namespace RebelCmsGenerator
 
                 if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
-                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    if (Key.Equals("PRI") || Key.Equals("MUL"))
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field.Replace("Id", "Key")+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field))+"\"]),");
+                    }
+                    else
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    }
                 }
-                else if (Type.Equals("double") || Type.Equals("float"))
+                else if (Type.Contains("double") || Type.Contains("float"))
                 {
                     template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDouble(reader[\""+LowerCaseFirst(Field)+"\"]),");
                 }
-                else if (Type.Equals("decimal"))
+                else if (Type.Contains("decimal"))
                 {
                     template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDecimal(reader[\""+LowerCaseFirst(Field)+"\"]),");
 
@@ -1551,11 +1657,11 @@ namespace RebelCmsGenerator
                 else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
 
-                    if (Type.ToString().Contains("DateTime") || Type.ToString().Contains("Date"))
+                    if (Type.ToString().Contains("datatime") || Type.ToString().Contains("date"))
                     {
                         template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
                     }
-                    else if (Type.ToString().Contains("Year"))
+                    else if (Type.ToString().Contains("year"))
                     {
                         template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.DateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
                     }
@@ -1616,7 +1722,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                {");
             template.AppendLine("                    while (reader.Read())");
             template.AppendLine("                   {");
-            template.AppendLine("                        "+ucTableName+"Models.Add(new "+lcTableName+"Model");
+            template.AppendLine("                        "+lcTableName+"Models.Add(new "+ucTableName+"Model");
             template.AppendLine("                       {");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
@@ -1633,13 +1739,20 @@ namespace RebelCmsGenerator
 
                 if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
-                    template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    if (Key.Equals("PRI") || Key.Equals("MUL"))
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field.Replace("Id", "Key")+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field))+"\"]),");
+                    }
+                    else
+                    {
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToInt32(reader[\""+LowerCaseFirst(Field)+"\"]),");
+                    }
                 }
-                else if (Type.Equals("double") || Type.Equals("float"))
+                else if (Type.Contains("double") || Type.Contains("float"))
                 {
                     template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDouble(reader[\""+LowerCaseFirst(Field)+"\"]),");
                 }
-                else if (Type.Equals("decimal"))
+                else if (Type.Contains("decimal"))
                 {
                     template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDecimal(reader[\""+LowerCaseFirst(Field)+"\"]),");
 
@@ -1647,13 +1760,13 @@ namespace RebelCmsGenerator
                 else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
 
-                    if (Type.ToString().Contains("DateTime") || Type.ToString().Contains("Date"))
+                    if (Type.ToString().Contains("datetime") || Type.ToString().Contains("date"))
                     {
                         template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.ToDateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
                     }
-                    else if (Type.ToString().Contains("Year"))
+                    else if (Type.ToString().Contains("year"))
                     {
-                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.DateTime(reader[\""+LowerCaseFirst(Field)+"\"]),") ;
+                        template.AppendLine("                            "+UpperCaseFirst(Field)+" = Convert.DateTime(reader[\""+LowerCaseFirst(Field)+"\"]),");
                     }
                     else
                     {
@@ -1678,7 +1791,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                throw new Exception(ex.Message);");
             template.AppendLine("            }");
 
-            template.AppendLine("            return tenantModels;");
+            template.AppendLine("            return "+lcTableName+"Models;");
             template.AppendLine("        }");
             template.AppendLine("        public byte[] GetExcel()");
             template.AppendLine("        {");
@@ -1797,15 +1910,14 @@ namespace RebelCmsGenerator
             template.AppendLine("                sql = @\"");
             template.AppendLine("                UPDATE  "+tableName+" ");
             template.AppendLine("                SET     isDelete    =   1");
-            template.AppendLine("                WHERE   " + lcTableName + "Id    =   @tenantId;\";");
+            template.AppendLine("                WHERE   " + lcTableName + "Id    =   "+lcTableName+"Id\";");
             template.AppendLine("                MySqlCommand mySqlCommand = new(sql, connection);");
-            template.AppendLine("                mySqlCommand.Parameters.AddWithValue(\"@tenantId\", tenantModel.TenantKey);");
             template.AppendLine("                parameterModels = new List<ParameterModel>");
             template.AppendLine("                {");
             template.AppendLine("                    new ()");
             template.AppendLine("                    {");
             template.AppendLine("                        Key = \"@"+lcTableName+"Id\",");
-            template.AppendLine("                        Value = " + lcTableName + "Model." + lcTableName + "Key");
+            template.AppendLine("                        Value = " + lcTableName + "Model." + ucTableName + "Key");
             template.AppendLine("                   }");
             template.AppendLine("                };");
             template.AppendLine("                foreach (ParameterModel parameter in parameterModels)");
