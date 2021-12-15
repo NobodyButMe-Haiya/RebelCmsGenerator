@@ -510,7 +510,6 @@ namespace RebelCmsGenerator
             var lcTableName = GetStringNoUnderScore(tableName, (int)TextCase.LcWords);
             List<DescribeTableModel> describeTableModels = GetTableStructure(tableName);
             List<string?> fieldNameList = describeTableModels.Select(x => x.FieldValue).ToList();
-
             StringBuilder template = new();
 
             template.AppendLine("@inject Microsoft.AspNetCore.Http.IHttpContextAccessor _httpContextAccessor");
@@ -522,10 +521,49 @@ namespace RebelCmsGenerator
             template.AppendLine("@{");
             template.AppendLine("    SharedUtil sharedUtils = new(_httpContextAccessor);");
             template.AppendLine($"    List<{ucTableName}Model> {lcTableName}Models = new();");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (Key.Equals("MUL"))
+                {
+                    // do nothing here 
+                    if(!Field.Equals("tenantId"))
+                    template.AppendLine($"    List<{LowerCaseFirst(Field.Replace("Id", ""))}Model> {LowerCaseFirst(Field.Replace("Id", ""))}Models = new();");
+
+                }
+            }
             template.AppendLine("    try");
             template.AppendLine("    {");
             template.AppendLine($"       {ucTableName}Repository {lcTableName}Repository = new(_httpContextAccessor);");
             template.AppendLine($"       {lcTableName}Models = {lcTableName}Repository.Read();");
+
+            template.AppendLine($"    List<{ucTableName}Model> {lcTableName}Models = new();");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (Key.Equals("MUL"))
+                {
+                    if (!Field.Equals("tenantId"))
+                    {
+                        template.AppendLine($"       {UpperCaseFirst(Field.Replace("Id", ""))}Repository {LowerCaseFirst(Field.Replace("Id", ""))}Repository = new(_httpContextAccessor);");
+                        template.AppendLine($"       {LowerCaseFirst(Field.Replace("Id", ""))}Models = {LowerCaseFirst(Field.Replace("Id", ""))}Repository.Read();");
+                    }
+
+                }
+            }
+
             template.AppendLine("    }");
             template.AppendLine("    catch (Exception ex)");
             template.AppendLine("    {");
