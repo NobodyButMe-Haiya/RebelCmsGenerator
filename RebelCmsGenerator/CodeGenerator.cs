@@ -810,7 +810,7 @@ namespace RebelCmsGenerator
                         {
                             template.AppendLine("                                    <td>");
                             template.AppendLine("                                        <label>");
-                            template.AppendLine($"                                            <select name=\"{Field}\" id=\"{Field}-@row.{ucTableName}Key\" class=\"form-control\">");
+                            template.AppendLine($"                                            <select name=\"{Field.Replace("Id","Key")}\" id=\"{Field.Replace("Id", "Key")}-@row.{ucTableName}Key\" class=\"form-control\">");
                             template.AppendLine($"                                              @if ({Field.Replace("Id", "")}Models.Count == 0)");
                             template.AppendLine("                                                {");
                             template.AppendLine("                                                  <option value=\"\">Please Create A New field </option>");
@@ -960,7 +960,7 @@ namespace RebelCmsGenerator
                     {
                         templateField.Append("row." + name + ",");
                         oneLineTemplateField.Append(name + ",");
-                        createTemplateField.Append(name + ",");
+                        createTemplateField.Append(name + ".val(),");
                     }
                 }
             };
@@ -1161,7 +1161,7 @@ namespace RebelCmsGenerator
             template.AppendLine("            let code = data.code;");
             template.AppendLine("            if (status) {");
             template.AppendLine("             const lastInsertKey = data.lastInsertKey;");
-            template.AppendLine("             $(\"#tableBody\").prepend(template(lastInsertKey,"+createTemplateField.ToString().TrimEnd(',')+")));");
+            template.AppendLine("             $(\"#tableBody\").prepend(template(lastInsertKey,"+createTemplateField.ToString().TrimEnd(',')+"));");
             template.AppendLine("             Swal.fire({");
             template.AppendLine("               title: 'Success!',");
             template.AppendLine("               text: '@SharedUtil.RecordCreated',");
@@ -1179,11 +1179,11 @@ namespace RebelCmsGenerator
                 {
                     if (name.Contains("Id"))
                     {
-                        template.AppendLine($"            {name.Replace("Id", "Key")}: {name.Replace("Id", "Key")}.val('');");
+                        template.AppendLine($"\t{name.Replace("Id", "Key")}.val('');");
                     }
                     else
                     {
-                        template.AppendLine("             " + name + ".val('');");
+                        template.AppendLine("\t" + name + ".val('');");
                     }
                 }
             }
@@ -1438,14 +1438,15 @@ namespace RebelCmsGenerator
 
                 if (!GetHiddenField().Any(x => name.Contains(x)))
                 {
+                    
                     if (name.Contains("Id"))
                     {
-                        if (name != lcTableName + "Key ")
-                            template.AppendLine($"           {name}: $(\"#{name.Replace("Id", "Key")}-\" + {name.Replace("Id", "Key")}).val(),");
+                        if (name != lcTableName + "Id")
+                            template.AppendLine($"           {name.Replace("Id","Key")}: $(\"#{name.Replace("Id", "Key")}-\" + {lcTableName}Key).val(),");
                     }
                     else
                     {
-                        template.AppendLine($"           {name}: $(\"#{name}-\" + {name}Key).val(),");
+                        template.AppendLine($"           {name}: $(\"#{name}-\" + {lcTableName}Key).val(),");
                     }
                 }
             }
@@ -2023,16 +2024,18 @@ namespace RebelCmsGenerator
             StringBuilder updateString = new();
             for (int i = 0; i < fieldNameList.Count; i++)
             {
-                if (i + 1 == fieldNameList.Count)
+                if (fieldNameList[i] != lcTableName + "Id")
                 {
-                    updateString.AppendLine(fieldNameList[i] + "=@" + fieldNameList[i]);
+                    if (i + 1 == fieldNameList.Count)
+                    {
+                        updateString.AppendLine(fieldNameList[i] + "=@" + fieldNameList[i]);
 
+                    }
+                    else
+                    {
+                        updateString.AppendLine(fieldNameList[i] + "=@" + fieldNameList[i] + ",");
+                    }
                 }
-                else
-                {
-                    updateString.AppendLine(fieldNameList[i] + "=@" + fieldNameList[i] + ",");
-                }
-
             }
             template.AppendLine(updateString.ToString().TrimEnd(','));
             // end loop
@@ -2044,6 +2047,11 @@ namespace RebelCmsGenerator
 
             template.AppendLine("                {");
             // loop start
+            template.AppendLine("                    new ()");
+            template.AppendLine("                    {");
+            template.AppendLine("                        Key = \"@" + lcTableName + "Id\",");
+            template.AppendLine("                        Value = " + lcTableName + "Model." + ucTableName + "Key");
+            template.AppendLine("                   },");
             template.AppendLine(loopColumn.ToString().TrimEnd(','));
             // loop end
             template.AppendLine("                };");
@@ -2074,7 +2082,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                sql = @\"");
             template.AppendLine("                UPDATE  " + tableName + " ");
             template.AppendLine("                SET     isDelete    =   1");
-            template.AppendLine("                WHERE   " + lcTableName + "Id    =   " + lcTableName + "Id\";");
+            template.AppendLine("                WHERE   " + lcTableName + "Id    =   @" + lcTableName + "Id\";");
             template.AppendLine("                MySqlCommand mySqlCommand = new(sql, connection);");
             template.AppendLine("                parameterModels = new List<ParameterModel>");
             template.AppendLine("                {");
