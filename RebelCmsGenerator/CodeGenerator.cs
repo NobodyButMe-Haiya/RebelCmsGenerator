@@ -11,7 +11,7 @@ namespace RebelCmsGenerator
     internal class CodeGenerator
     {
         private const string DEFAULT_DATABASE = "rebelcms";
-        private string connection;
+        private readonly string connection;
         enum TextCase
         {
             LcWords,
@@ -333,7 +333,7 @@ namespace RebelCmsGenerator
                         template.AppendLine($"\tDateTime {Field} = DateTime.MinValue;");
                         template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                         template.AppendLine("\t{");
-                        template.AppendLine($"\tif (DateTime.TryParseExact(Request.Form[\"{Field}\"], \""+format+"\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out "+Field+" ));");
+                        template.AppendLine($"\t DateTime.TryParseExact(Request.Form[\"{Field}\"], \""+format+"\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out "+Field+" );");
                         template.AppendLine("\t}");
                     }
                     else if (Type.ToString().Contains("year"))
@@ -534,7 +534,7 @@ namespace RebelCmsGenerator
                 {
                     // do nothing here 
                     if(!Field.Equals("tenantId"))
-                    template.AppendLine($"    List<{LowerCaseFirst(Field.Replace("Id", ""))}Model> {LowerCaseFirst(Field.Replace("Id", ""))}Models = new();");
+                    template.AppendLine($"    List<{UpperCaseFirst(Field.Replace("Id", ""))}Model> {LowerCaseFirst(Field.Replace("Id", ""))}Models = new();");
 
                 }
             }
@@ -543,7 +543,6 @@ namespace RebelCmsGenerator
             template.AppendLine($"       {ucTableName}Repository {lcTableName}Repository = new(_httpContextAccessor);");
             template.AppendLine($"       {lcTableName}Models = {lcTableName}Repository.Read();");
 
-            template.AppendLine($"    List<{ucTableName}Model> {lcTableName}Models = new();");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
                 string Key = string.Empty;
@@ -673,7 +672,7 @@ namespace RebelCmsGenerator
                         template.AppendLine("                                                {");
                         template.AppendLine($"                                                foreach (var row"+UpperCaseFirst(Field.Replace("Id", ""))+" in "+LowerCaseFirst(Field.Replace("Id", ""))+"Models)");
                         template.AppendLine("                                                {");
-                        template.AppendLine($"                                                   <option value=\"@row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"yKey\">");
+                        template.AppendLine($"                                                   <option value=\"@row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Key\">");
                         template.AppendLine("                                                   @row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Name</option>");
                         template.AppendLine("                                                }");
                         template.AppendLine("                                               }");
@@ -776,7 +775,7 @@ namespace RebelCmsGenerator
                         template.AppendLine("                                                else");
                         template.AppendLine("                                                {");
                         template.AppendLine("foreach (var option in from row"+UpperCaseFirst(Field.Replace("Id", ""))+" in "+LowerCaseFirst(Field.Replace("Id", ""))+"Models");
-                        template.AppendLine("                        let selected = row"+UpperCaseFirst(Field.Replace("Id", ""))+" in "+UpperCaseFirst(Field.Replace("Id", ""))+"Key ==");
+                        template.AppendLine("                        let selected = row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Key ==");
                         template.AppendLine("                       row."+UpperCaseFirst(Field.Replace("Id",""))+"Key");
                         template.AppendLine("                       select selected ? Html.Raw(\"<option value='\" +");
                         template.AppendLine("                       row"+UpperCaseFirst(Field.Replace("Id", ""))+"."+UpperCaseFirst(Field.Replace("Id", ""))+"Key + \"' selected>\" +");
@@ -842,11 +841,11 @@ namespace RebelCmsGenerator
             // loop here
             template.AppendLine("                                        <td style=\"text-align: center\">");
             template.AppendLine("                                            <div class=\"btn-group\">");
-            template.AppendLine($"                                                <Button type=\"button\" class=\"btn btn-warning\" onclick=\"updateRecord(@row.{lcTableName}Key)\">");
+            template.AppendLine($"                                                <Button type=\"button\" class=\"btn btn-warning\" onclick=\"updateRecord(@row.{ucTableName}Key)\">");
             template.AppendLine("                                                    <i class=\"fas fa-edit\"></i>&nbsp;UPDATE");
             template.AppendLine("                                                </Button>");
             template.AppendLine("                                                &nbsp;");
-            template.AppendLine($"                                                <Button type=\"button\" class=\"btn btn-danger\" onclick=\"deleteRecord(@row.{lcTableName}Key)\">");
+            template.AppendLine($"                                                <Button type=\"button\" class=\"btn btn-danger\" onclick=\"deleteRecord(@row.{ucTableName}Key)\">");
             template.AppendLine("                                                    <i class=\"fas fa-trash\"></i>&nbsp;DELETE");
             template.AppendLine("                                                </Button>");
             template.AppendLine("                                            </div>");
@@ -895,7 +894,7 @@ namespace RebelCmsGenerator
                 if (name.Contains("Id"))
                 {
                     templateField.Append("row."+name.Replace("Id", "Key")+",");
-                    oneLineTemplateField.Append("row."+name.Replace("Id", "Key")+",");
+                    oneLineTemplateField.Append(name.Replace("Id", "Key")+",");
                 }
                 else
                 {
@@ -914,7 +913,31 @@ namespace RebelCmsGenerator
             template.AppendLine("        }");
             // remember to one row template here as function name 
             template.AppendLine("        function template("+oneLineTemplateField.ToString().TrimEnd(',')+") {");
-            template.AppendLine("            return \"\" +");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (Key.Equals("MUL"))
+                {
+                    // do nothing here 
+                    if (!Field.Equals("tenantId"))
+                    {
+                        template.AppendLine("\tlet " + Field.Replace("Id", "Key") + "Options = \"\";");
+                        template.AppendLine("\tlet i = 0;");
+                        template.AppendLine("\t"+Field.Replace("Id", "") + "Models.map((row) => {");
+                        template.AppendLine("\t\ti++;");
+                        template.AppendLine("\t\tconst selected = (parseInt(row." + Field.Replace("Id", "Key") + ") === parseInt(" + Field.Replace("Id", "Key") + ")) ? \"selected\" : \"\";");
+                        template.AppendLine("\t\t"+Field.Replace("Id", "Key") + "Options += \"<option value='\" + row." + Field.Replace("Id", "Key") + " + \"' \" + selected + \">\" + row." + Field.Replace("Id", "") + "Name +\"</option>\";");
+                        template.AppendLine("\t)};");
+                    }
+                }
+            }
+            template.AppendLine("            let template =  \"\" +");
             template.AppendLine($"                \"<tr id='{lcTableName}-\" + {ucTableName}Key + \"'>\" +");
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
@@ -930,11 +953,25 @@ namespace RebelCmsGenerator
 
                 if (GetNumberDataType().Any(x => Type.Contains(x)))
                 {
-                    template.AppendLine("                                    \"<td>\" +");
-                    template.AppendLine("                                        \"<label>\" +");
-                    template.AppendLine("                                            \"<input type='number' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' class='form-control' />\" +");
-                    template.AppendLine("                                        \"</label>\" +");
-                    template.AppendLine("                                    \"</td>\" +");
+                    if (Key.Equals("MUL"))
+                    {
+                        template.AppendLine("\t\t\"<td class='tdNormalAlign'>\" +");
+                        template.AppendLine("\t\t\t\" <label>\" +");
+                        template.AppendLine("\t\t\t\t\"<select id='productCategoryKey-\" + productTypeKey + \"' class='form-control'>\";");
+                        template.AppendLine("\t\ttemplate += " + Field.Replace("Id", "Key") + "Options;");
+                        template.AppendLine("\t\ttemplate += \" </select > \" +");
+                        template.AppendLine("\t\t\"</label>\" +");
+                        template.AppendLine("\t\t\"</td>\" +");
+                    }
+                    else if (!Field.Equals("tenantId"))
+                        {
+                            template.AppendLine("                                    \"<td>\" +");
+                            template.AppendLine("                                        \"<label>\" +");
+                            template.AppendLine("                                            \"<input type='number' name='" + Field + "[]' id='" + Field + "' value='\"+" + Field + "+\"' class='form-control' />\" +");
+                            template.AppendLine("                                        \"</label>\" +");
+                            template.AppendLine("                                    \"</td>\" +");
+                        }
+                    
                 }
                 else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
@@ -959,8 +996,8 @@ namespace RebelCmsGenerator
                         template.AppendLine("                                    \"<td>\" +");
                         template.AppendLine("                                        \"<label>\" +");
                         template.AppendLine("                                            \"<input type='text' name='"+Field+"[]' id='"+Field+"' value='\"+"+Field+"+\"' class='form-control' />\" +");
-                        template.AppendLine("                                        \"</label>");
-                        template.AppendLine("                                    \"</td>\" +\" +");
+                        template.AppendLine("                                        \"</label>\" +");
+                        template.AppendLine("                                   \"</td>\" +");
                     }
                 }
                 else
@@ -983,6 +1020,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                \"</Button>\" +");
             template.AppendLine("                \"</div></td>\" +");
             template.AppendLine("                \"</tr>\";");
+            template.AppendLine("               return template; ");
             template.AppendLine("        }");
             template.AppendLine("        function createRecord() {");
             // loop here 
@@ -1019,11 +1057,11 @@ namespace RebelCmsGenerator
 
                 if (name.Contains("Id"))
                 {
-                    template.AppendLine($"            {name.Replace("Id", "Key")}: {name.Replace("Id", "Key")}.val()");
+                    template.AppendLine($"            {name.Replace("Id", "Key")}: {name.Replace("Id", "Key")}.val(),");
                 }
                 else
                 {
-                    template.AppendLine($"            {name}: {name}.val()");
+                    template.AppendLine($"            {name}: {name}.val(),");
                 }
             }
             // loop here
@@ -1316,11 +1354,11 @@ namespace RebelCmsGenerator
                 if (name.Contains("Id"))
                 {
                     if (name != lcTableName+"Key ")
-                        template.AppendLine($"           {name}: $(\"#{name.Replace("Id", "Key")}-\" + {name.Replace("Id", "Key")}).val();");
+                        template.AppendLine($"           {name}: $(\"#{name.Replace("Id", "Key")}-\" + {name.Replace("Id", "Key")}).val(),");
                 }
                 else
                 {
-                    template.AppendLine($"           {name}: $(\"#{name}-\" + {name}Key).val();");
+                    template.AppendLine($"           {name}: $(\"#{name}-\" + {name}Key).val(),");
                 }
             }
             // loop here
