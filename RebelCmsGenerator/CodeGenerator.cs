@@ -56,7 +56,7 @@ namespace RebelCmsGenerator
         }
         public static List<string> GetHiddenField()
         {
-            return new List<string> { "tenantId","isDelete", "executeBy" };
+            return new List<string> { "tenantId", "isDelete", "executeBy" };
         }
 
         public static List<string> GetDateFormatUsa()
@@ -209,7 +209,11 @@ namespace RebelCmsGenerator
                         }
                         else if (Type.Equals("date"))
                         {
-                            template.AppendLine("\tpublic DateTime " + UpperCaseFirst(Field) + " { get; init; } ");
+                            template.AppendLine("\tpublic DateOnly " + UpperCaseFirst(Field) + " { get; init; } ");
+                        }
+                        else if (Type.Equals("time"))
+                        {
+                            template.AppendLine("\tpublic TimeOnly " + UpperCaseFirst(Field) + " { get; init; } ");
                         }
                         else if (Type.Equals("year"))
                         {
@@ -336,13 +340,32 @@ namespace RebelCmsGenerator
                     }
                     else if (GetDateDataType().Any(x => Type.Contains(x)))
                     {
-                        if (Type.ToString().Contains("datetime") || Type.ToString().Contains("date"))
+                        if (Type.ToString().Contains("datetime"))
                         {
-                            var format = (Type.ToString().Contains("datetime")) ? "yyyy-MM-dd HH: mm" : "yyyy-MM-dd";
+
+                            var format = "yyyy-MM-dd HH: mm";
                             template.AppendLine($"\tDateTime {Field} = DateTime.MinValue;");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
                             template.AppendLine($"\t DateTime.TryParseExact(Request.Form[\"{Field}\"], \"" + format + "\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out " + Field + " );");
+                            template.AppendLine("\t}");
+                        }
+                        else if (Type.ToString().Contains("date"))
+                        {
+                            var format =  "yyyy-MM-dd";
+                            template.AppendLine($"\tDateOnly {Field} = DateOnly.FromDateTime(DateTime.Now);");
+                            template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
+                            template.AppendLine("\t{");
+                            template.AppendLine($"\t DateOnly.TryParseExact(Request.Form[\"{Field}\"], \"" + format + "\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out " + Field + " );");
+                            template.AppendLine("\t}");
+                        }
+                        else if (Type.ToString().Contains("time"))
+                        {
+                            var format = "hh:mm";
+                            template.AppendLine($"\tTimeOnly {Field} = TimeOnly.FromDateTime(DateTime.Now);");
+                            template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
+                            template.AppendLine("\t{");
+                            template.AppendLine($"\t TimeOnly.TryParseExact(Request.Form[\"{Field}\"], \"" + format + "\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out " + Field + " );");
                             template.AppendLine("\t}");
                         }
                         else if (Type.ToString().Contains("year"))
@@ -675,7 +698,7 @@ namespace RebelCmsGenerator
                         {
                             template.AppendLine("                                    <td>");
                             template.AppendLine("                                        <label>");
-                            template.AppendLine($"                                            <select name=\"{Field.Replace("Id","Key")}\" id=\"{Field.Replace("Id", "Key")}\" class=\"form-control\">");
+                            template.AppendLine($"                                            <select name=\"{Field.Replace("Id", "Key")}\" id=\"{Field.Replace("Id", "Key")}\" class=\"form-control\">");
                             template.AppendLine($"                                              @if ({Field.Replace("Id", "")}Models.Count == 0)");
                             template.AppendLine("                                                {");
                             template.AppendLine("                                                  <option value=\"\">Please Create A New field </option>");
@@ -725,6 +748,22 @@ namespace RebelCmsGenerator
                             template.AppendLine("                                    <td>");
                             template.AppendLine("                                        <label>");
                             template.AppendLine($"                                            <input type=\"date\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                            template.AppendLine("                                        </label>");
+                            template.AppendLine("                                    </td>");
+                        }
+                        else if (Type.ToString().Contains("time"))
+                        {
+                            template.AppendLine("                                    <td>");
+                            template.AppendLine("                                        <label>");
+                            template.AppendLine($"                                            <input type=\"time\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
+                            template.AppendLine("                                        </label>");
+                            template.AppendLine("                                    </td>");
+                        }
+                        else if (Type.ToString().Contains("year"))
+                        {
+                            template.AppendLine("                                    <td>");
+                            template.AppendLine("                                        <label>");
+                            template.AppendLine($"                                            <input type=\"number\" type=\"number\" min=\"1900\" max=\"2099\" step=\"1\" name=\"{Field}\" id=\"{Field}\" class=\"form-control\" />");
                             template.AppendLine("                                        </label>");
                             template.AppendLine("                                    </td>");
                         }
@@ -810,7 +849,7 @@ namespace RebelCmsGenerator
                         {
                             template.AppendLine("                                    <td>");
                             template.AppendLine("                                        <label>");
-                            template.AppendLine($"                                            <select name=\"{Field.Replace("Id","Key")}\" id=\"{Field.Replace("Id", "Key")}-@row.{ucTableName}Key\" class=\"form-control\">");
+                            template.AppendLine($"                                            <select name=\"{Field.Replace("Id", "Key")}\" id=\"{Field.Replace("Id", "Key")}-@row.{ucTableName}Key\" class=\"form-control\">");
                             template.AppendLine($"                                              @if ({Field.Replace("Id", "")}Models.Count == 0)");
                             template.AppendLine("                                                {");
                             template.AppendLine("                                                  <option value=\"\">Please Create A New field </option>");
@@ -867,6 +906,22 @@ namespace RebelCmsGenerator
                             template.AppendLine("                                    <td>");
                             template.AppendLine("                                        <label>");
                             template.AppendLine($"                                            <input type=\"date\" name=\"{Field}\" id=\"{Field}-@row.{ucTableName}Key\" value=\"@row.{UpperCaseFirst(Field)}.ToString(\"yyyy-MM-dd\")\" class=\"form-control\" />");
+                            template.AppendLine("                                        </label>");
+                            template.AppendLine("                                    </td>");
+                        }
+                        else if (Type.ToString().Contains("time"))
+                        {
+                            template.AppendLine("                                    <td>");
+                            template.AppendLine("                                        <label>");
+                            template.AppendLine($"                                            <input type=\"time\" name=\"{Field}\" id=\"{Field}-@row.{ucTableName}Key\" value=\"@row.{UpperCaseFirst(Field)}.ToString(\"yyyy-MM-dd\")\" class=\"form-control\" />");
+                            template.AppendLine("                                        </label>");
+                            template.AppendLine("                                    </td>");
+                        }
+                        else if (Type.ToString().Contains("year"))
+                        {
+                            template.AppendLine("                                    <td>");
+                            template.AppendLine("                                        <label>");
+                            template.AppendLine($"                                            <input type=\"number\" min=\"1900\" max=\"2099\" step=\"1\" name=\"{Field}\" id=\"{Field}-@row.{ucTableName}Key\" value=\"@row.{UpperCaseFirst(Field)}.ToString(\"yyyy-MM-dd\")\" class=\"form-control\" />");
                             template.AppendLine("                                        </label>");
                             template.AppendLine("                                    </td>");
                         }
@@ -1044,7 +1099,7 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                                    \"<td>\" +");
                         template.AppendLine("                                        \"<label>\" +");
-                        template.AppendLine("                                            \"<input type='number' step='0.01' name='" + Field + "' id='" + Field+ "-\"+" + lcTableName + "Key+\"' value='\"+" + LowerCaseFirst(Field) + "+\"' class='form-control' />\" +");
+                        template.AppendLine("                                            \"<input type='number' step='0.01' name='" + Field + "' id='" + Field + "-\"+" + lcTableName + "Key+\"' value='\"+" + LowerCaseFirst(Field) + "+\"' class='form-control' />\" +");
                         template.AppendLine("                                        \"</label>\" +");
                         template.AppendLine("                                    \"</td>\" +");
                     }
@@ -1062,7 +1117,23 @@ namespace RebelCmsGenerator
                         {
                             template.AppendLine("                                    \"<td>\" +");
                             template.AppendLine("                                        \"<label>\" +");
-                            template.AppendLine("                                            \"<input type='date' name='" + LowerCaseFirst(Field) + "' name='" + Field + "' id='" + Field.Replace("Id", "Key") + "-\"+" + lcTableName + "Key+\"' value='\"+" + LowerCaseFirst(Field) + ".substring(0,10)+\"' class='form-control' />\" +");
+                            template.AppendLine("                                            \"<input type='date' name='" + LowerCaseFirst(Field) + "'  id='" + Field.Replace("Id", "Key") + "-\"+" + lcTableName + "Key+\"' value='\"+" + LowerCaseFirst(Field) + ".substring(0,10)+\"' class='form-control' />\" +");
+                            template.AppendLine("                                        \"</label>\" +");
+                            template.AppendLine("                                    \"</td>\" +");
+                        }
+                        else if (Type.ToString().Contains("time"))
+                        {
+                            template.AppendLine("                                    \"<td>\" +");
+                            template.AppendLine("                                        \"<label>\" +");
+                            template.AppendLine("                                            \"<input type='time' name='" + LowerCaseFirst(Field) + "' id='" + Field.Replace("Id", "Key") + "-\"+" + lcTableName + "Key+\"' value='\"+" + LowerCaseFirst(Field) + ".substring(0,10)+\"' class='form-control' />\" +");
+                            template.AppendLine("                                        \"</label>\" +");
+                            template.AppendLine("                                    \"</td>\" +");
+                        }
+                        else if (Type.ToString().Contains("year"))
+                        {
+                            template.AppendLine("                                    \"<td>\" +");
+                            template.AppendLine("                                        \"<label>\" +");
+                            template.AppendLine("                                            \"<input type='number' min='1900' max='2099' step='1' name='" + LowerCaseFirst(Field) + "' id='" + Field.Replace("Id", "Key") + "-\"+" + lcTableName + "Key+\"' value='\"+" + LowerCaseFirst(Field) + ".substring(0,10)+\"' class='form-control' />\" +");
                             template.AppendLine("                                        \"</label>\" +");
                             template.AppendLine("                                    \"</td>\" +");
                         }
@@ -1161,7 +1232,7 @@ namespace RebelCmsGenerator
             template.AppendLine("            let code = data.code;");
             template.AppendLine("            if (status) {");
             template.AppendLine("             const lastInsertKey = data.lastInsertKey;");
-            template.AppendLine("             $(\"#tableBody\").prepend(template(lastInsertKey,"+createTemplateField.ToString().TrimEnd(',')+"));");
+            template.AppendLine("             $(\"#tableBody\").prepend(template(lastInsertKey," + createTemplateField.ToString().TrimEnd(',') + "));");
             template.AppendLine("             Swal.fire({");
             template.AppendLine("               title: 'Success!',");
             template.AppendLine("               text: '@SharedUtil.RecordCreated',");
@@ -1438,11 +1509,11 @@ namespace RebelCmsGenerator
 
                 if (!GetHiddenField().Any(x => name.Contains(x)))
                 {
-                    
+
                     if (name.Contains("Id"))
                     {
                         if (name != lcTableName + "Id")
-                            template.AppendLine($"           {name.Replace("Id","Key")}: $(\"#{name.Replace("Id", "Key")}-\" + {lcTableName}Key).val(),");
+                            template.AppendLine($"           {name.Replace("Id", "Key")}: $(\"#{name.Replace("Id", "Key")}-\" + {lcTableName}Key).val(),");
                     }
                     else
                     {
