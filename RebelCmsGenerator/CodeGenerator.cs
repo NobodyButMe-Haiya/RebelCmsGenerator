@@ -1905,11 +1905,11 @@ namespace RebelCmsGenerator
                     }
                     else if (Type.ToString().Contains("time"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((TimeSpan)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
                     else if (Type.ToString().Contains("date"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((DateTime)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
                 }
                 else
@@ -2079,11 +2079,11 @@ namespace RebelCmsGenerator
                     {
                         template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.ToInt32(reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     } else if (Type.ToString().Contains("time")){
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((TimeSpan)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
                     else  if (Type.ToString().Contains("date"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((DateTime)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
 
                 }
