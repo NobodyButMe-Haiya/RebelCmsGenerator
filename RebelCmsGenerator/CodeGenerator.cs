@@ -329,11 +329,13 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
-                if (Field.Contains("Id"))
-                    Field = Field.Replace("Id", "Key");
+         
 
                 if (!GetHiddenField().Any(x => Field.Contains(x)))
                 {
+                    if (Field.Contains("Id"))
+                        Field = Field.Replace("Id", "Key");
+
                     if (GetNumberDataType().Any(x => Type.Contains(x)))
                     {
                         template.AppendLine($"\tint {Field} =  !string.IsNullOrEmpty(Request.Form[\"{Field}\"])?Convert.ToInt32(Request.Form[\"{Field}\"]):0;");
@@ -352,7 +354,7 @@ namespace RebelCmsGenerator
                         }
                         else if (Type.ToString().Contains("date"))
                         {
-                            var format =  "yyyy-MM-dd";
+                            var format = "yyyy-MM-dd";
                             template.AppendLine($"\tDateOnly {Field} = DateOnly.FromDateTime(DateTime.Now);");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
@@ -856,7 +858,7 @@ namespace RebelCmsGenerator
                             template.AppendLine("                                                }");
                             template.AppendLine("                                                else");
                             template.AppendLine("                                                {");
-                            template.AppendLine("foreach (var option in from row" + UpperCaseFirst(Field.Replace("Id", "")) + " in " + LowerCaseFirst(Field.Replace("Id", "")) + "Models");
+                            template.AppendLine("                       foreach (var option in from row" + UpperCaseFirst(Field.Replace("Id", "")) + " in " + LowerCaseFirst(Field.Replace("Id", "")) + "Models");
                             template.AppendLine("                        let selected = row" + UpperCaseFirst(Field.Replace("Id", "")) + "." + UpperCaseFirst(Field.Replace("Id", "")) + "Key ==");
                             template.AppendLine("                       row." + UpperCaseFirst(Field.Replace("Id", "")) + "Key");
                             template.AppendLine("                       select selected ? Html.Raw(\"<option value='\" +");
@@ -1893,17 +1895,21 @@ namespace RebelCmsGenerator
                 else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
 
-                    if (Type.ToString().Contains("datatime") || Type.ToString().Contains("date"))
+                    if (Type.ToString().Contains("datetime"))
                     {
                         template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.ToDateTime(reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
                     else if (Type.ToString().Contains("year"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.DateTime(reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.ToInt32(reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
-                    else
+                    else if (Type.ToString().Contains("time"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = (reader[\"" + LowerCaseFirst(Field) + "\"].ToString(),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                    }
+                    else if (Type.ToString().Contains("date"))
+                    {
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
                 }
                 else
@@ -1934,12 +1940,79 @@ namespace RebelCmsGenerator
             template.AppendLine("            using MySqlConnection connection = SharedUtil.GetConnection();");
             template.AppendLine("            try");
             template.AppendLine("            {");
+            // the main problem is are we should filter em all or else ? 
             template.AppendLine("                connection.Open();");
             template.AppendLine("                sql += @\"");
             template.AppendLine("                SELECT  *");
             template.AppendLine("                FROM    " + tableName + " ");
-            template.AppendLine("                WHERE   isDelete != 1");
-            template.AppendLine("                AND     tenantName like concat('%',@search,'%'); \";");
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+
+                if (!GetHiddenField().Any(x => Field.Contains(x)))
+                {
+                    if (GetNumberDataType().Any(x => Type.Contains(x)))
+                    {
+                        if (Key.Equals("MUL"))
+                        {
+                            template.AppendLine("\t JOIN " + Field.Replace("Id", "") + ")");
+                            template.AppendLine("\t USING(" + Field + ")");
+                        }
+                    }
+                }
+            }
+            // how many table join is related ? 
+            template.AppendLine("\t WHERE   isDelete != 1");
+            // we create a list which field  manually so end user can choose we give em all filter 
+            StringBuilder templateSearch = new();
+            foreach (DescribeTableModel describeTableModel in describeTableModels)
+            {
+                string Key = string.Empty;
+                string Field = string.Empty;
+                string Type = string.Empty;
+                if (describeTableModel.KeyValue != null)
+                    Key = describeTableModel.KeyValue;
+                if (describeTableModel.FieldValue != null)
+                    Field = describeTableModel.FieldValue;
+                if (describeTableModel.TypeValue != null)
+                    Type = describeTableModel.TypeValue;
+
+
+                if (!GetHiddenField().Any(x => Field.Contains(x)))
+                {
+
+                    if (Key.Equals("MUL"))
+                    {
+                        // we need to loop other table field name which might a bit difficult to check 
+                        // in old time we limit to  fieldName+"Name|Description or we  stuck to unlimited search or we limit  the query into array and filter back again 
+                        // we can do detail checking reference table via checking sql below and reloop  but this is pure simple solution compare my 10 years old php .
+                        /***
+                        SELECT referenced_table_name
+                        FROM information_schema.KEY_COLUMN_USAGE
+                        WHERE   table_schema = 'rebelcms'
+                        AND     TABLE_NAME = 'sample'
+                        ***/
+                        templateSearch.Append("\t " + Field.Replace("Id", "") + "." + Field.Replace("Id", "") + "Name like concat('%',@search,'%') OR");
+                    }
+                    else
+                    {
+                        if (!Key.Equals("PRI"))
+                            templateSearch.Append("\n\t " + lcTableName + "." + Field + " like concat('%',@search,'%') OR");
+                    }
+
+                }
+            }
+            template.AppendLine("\t AND " + templateSearch.ToString().TrimEnd('O', 'R') + "\";");
+
             template.AppendLine("                MySqlCommand mySqlCommand = new(sql, connection);");
             template.AppendLine("                parameterModels = new List<ParameterModel>");
             template.AppendLine("                {");
@@ -1960,6 +2033,8 @@ namespace RebelCmsGenerator
             template.AppendLine("                   {");
             template.AppendLine("                        " + lcTableName + "Models.Add(new " + ucTableName + "Model");
             template.AppendLine("                       {");
+
+   
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
                 string Key = string.Empty;
@@ -1995,19 +2070,22 @@ namespace RebelCmsGenerator
                 }
                 else if (GetDateDataType().Any(x => Type.Contains(x)))
                 {
-
-                    if (Type.ToString().Contains("datetime") || Type.ToString().Contains("date"))
+                    // year allready as int 
+                    if (Type.ToString().Contains("datetime"))
                     {
                         template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.ToDateTime(reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
                     else if (Type.ToString().Contains("year"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.DateTime(reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.ToInt32(reader[\"" + LowerCaseFirst(Field) + "\"]),");
+                    } else if (Type.ToString().Contains("time")){
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
-                    else
+                    else  if (Type.ToString().Contains("date"))
                     {
-                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = (reader[\"" + LowerCaseFirst(Field) + "\"].ToString(),");
+                        template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((string)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
+
                 }
                 else
                 {
@@ -2016,6 +2094,7 @@ namespace RebelCmsGenerator
 
             }
             template.AppendLine("});");
+
             template.AppendLine("                    }");
             template.AppendLine("                }");
             template.AppendLine("                mySqlCommand.Dispose();");
