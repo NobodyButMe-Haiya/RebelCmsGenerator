@@ -106,14 +106,14 @@ namespace RebelCmsGenerator
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine("No Record");
+                    Debug.WriteLine("No Record");
 
                 }
                 reader.Close();
             }
             catch (MySqlException ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                Debug.WriteLine(ex.Message);
             }
             return tableNames;
         }
@@ -144,14 +144,14 @@ namespace RebelCmsGenerator
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine("No Record");
+                    Debug.WriteLine("No Record");
 
                 }
 
             }
             catch (MySqlException ex)
             {
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                Debug.WriteLine(ex.Message);
             }
             finally
             {
@@ -1964,7 +1964,8 @@ namespace RebelCmsGenerator
                     {
                         if (Key.Equals("MUL"))
                         {
-                            template.AppendLine("\t JOIN " + Field.Replace("Id", "") + ")");
+                            // seem replacing id not suitable because we forgeting the camel case . so grab the table name from the system it self 
+                            template.AppendLine("\t JOIN " + GetForeignKeyTableName(tableName, Field) + " ");
                             template.AppendLine("\t USING(" + Field + ")");
                         }
                     }
@@ -2000,6 +2001,7 @@ namespace RebelCmsGenerator
                         FROM information_schema.KEY_COLUMN_USAGE
                         WHERE   table_schema = 'rebelcms'
                         AND     TABLE_NAME = 'sample'
+                        we create a new function -> GetForeignKeyTableName(tableName, Field)  but this is if the person want to override this generator
                         ***/
                         templateSearch.Append("\t " + Field.Replace("Id", "") + "." + Field.Replace("Id", "") + "Name like concat('%',@search,'%') OR");
                     }
@@ -2260,6 +2262,33 @@ namespace RebelCmsGenerator
             template.AppendLine("}");
 
             return template.ToString(); ;
+        }
+
+        private string? GetForeignKeyTableName(string tableName, string field)
+        {
+       
+
+            using MySqlConnection connection = GetConnection();
+            connection.Open();
+            var referencedTableName = string.Empty;
+            // this is generator so nooo need  bind param
+            string sql = $@"		
+            SELECT  REFERENCED_TABLE_NAME
+		    FROM 	information_schema.KEY_COLUMN_USAGE
+		    WHERE 	table_schema='{DEFAULT_DATABASE}'
+		    AND 	TABLE_NAME = '{tableName}'
+		    AND REFERENCED_COLUMN_NAME='{field}'
+            LIMIT  1 ";
+            var command = new MySqlCommand(sql, connection);
+            try
+            {
+                referencedTableName = command.ExecuteScalar().ToString();
+            }
+            catch (MySqlException ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+            return referencedTableName;
         }
 
         private static string UpperCaseFirst(string s)
