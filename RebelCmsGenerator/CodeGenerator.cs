@@ -344,7 +344,7 @@ namespace RebelCmsGenerator
                     {
                         if (Type.ToString().Contains("datetime"))
                         {
-                            // seem parse exact and getter and setter not available  so parse our own way
+
                             template.AppendLine($"\tDateTime {Field} = DateTime.MinValue;");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
@@ -360,7 +360,7 @@ namespace RebelCmsGenerator
                             template.AppendLine("\tvar minute = Convert.ToInt32(timeString[1].ToString());");
 
                             template.AppendLine("\tsampleDateTime = new(year, month, day, hour, minute, 0);");
-                            template.AppendLine("\t}"); 
+                            template.AppendLine("\t}");
                         }
                         else if (Type.ToString().Contains("date"))
                         {
@@ -373,7 +373,7 @@ namespace RebelCmsGenerator
                         }
                         else if (Type.ToString().Contains("time"))
                         {
-\                           template.AppendLine($"\tTimeOnly {Field} = TimeOnly.FromDateTime(DateTime.Now);");
+                            template.AppendLine($"\tTimeOnly {Field} = TimeOnly.FromDateTime(DateTime.Now);");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
                             template.AppendLine($"\tvar timeString = Request.Form[\"{Field}\"].ToString().Split(\":\");");
@@ -1787,7 +1787,7 @@ namespace RebelCmsGenerator
                             loopColumn.AppendLine("                    new ()");
                             loopColumn.AppendLine("                    {");
                             loopColumn.AppendLine("                        Key = \"@" + Field + "\",");
-                            loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field)+ ".ToString(\"yyyy-MM-dd HH:mm\")");
+                            loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field) + ".ToString(\"yyyy-MM-dd HH:mm\")");
                             loopColumn.AppendLine("                    },");
                         }
                         else if (Type.ToString().Contains("date"))
@@ -2059,7 +2059,7 @@ namespace RebelCmsGenerator
                                 if (describeTableModel.TypeValue != null)
                                     ForeignModelType = describeTableModel.TypeValue;
                                 if (!(ForeignModelKey.Equals("PRI") && ForeignModelKey.Equals("MULL")))
-                                    templateSearch.Append("\t " + foreignTableName + "." +ForeignModelField + " like concat('%',@search,'%') OR");
+                                    templateSearch.Append("\t " + foreignTableName + "." + ForeignModelField + " like concat('%',@search,'%') OR");
 
                             }
                         }
