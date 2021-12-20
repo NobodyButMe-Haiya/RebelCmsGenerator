@@ -329,7 +329,7 @@ namespace RebelCmsGenerator
                 if (describeTableModel.TypeValue != null)
                     Type = describeTableModel.TypeValue;
 
-         
+
 
                 if (!GetHiddenField().Any(x => Field.Contains(x)))
                 {
@@ -344,30 +344,40 @@ namespace RebelCmsGenerator
                     {
                         if (Type.ToString().Contains("datetime"))
                         {
-
-                            var format = "yyyy-MM-dd HH: mm";
+                            // seem parse exact and getter and setter not available  so parse our own way
                             template.AppendLine($"\tDateTime {Field} = DateTime.MinValue;");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
-                            template.AppendLine($"\t DateTime.TryParseExact(Request.Form[\"{Field}\"], \"" + format + "\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out " + Field + " );");
-                            template.AppendLine("\t}");
+                            template.AppendLine("\tvar test = Request.Form[\"{Field}\"].ToString().Split(\"T\");");
+                            template.AppendLine("\tvar dateString = test[0].Split(\"-\");");
+                            template.AppendLine("\tvar timeString = test[1].Split(\":\");");
+
+                            template.AppendLine("\tvar year = Convert.ToInt32(dateString[0]);");
+                            template.AppendLine("\tvar month = Convert.ToInt32(dateString[1]);");
+                            template.AppendLine("\tvar day = Convert.ToInt32(dateString[2]);");
+
+                            template.AppendLine("\tvar hour = Convert.ToInt32(timeString[0].ToString());");
+                            template.AppendLine("\tvar minute = Convert.ToInt32(timeString[1].ToString());");
+
+                            template.AppendLine("\tsampleDateTime = new(year, month, day, hour, minute, 0);");
+                            template.AppendLine("\t}"); 
                         }
                         else if (Type.ToString().Contains("date"))
                         {
-                            var format = "yyyy-MM-dd";
                             template.AppendLine($"\tDateOnly {Field} = DateOnly.FromDateTime(DateTime.Now);");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
-                            template.AppendLine($"\t DateOnly.TryParseExact(Request.Form[\"{Field}\"], \"" + format + "\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out " + Field + " );");
+                            template.AppendLine($"\tvar dateString = Request.Form[{Field}].ToString().Split(\"-\");");
+                            template.AppendLine("\tsampleDate = new DateOnly(Convert.ToInt32(dateString[0]), Convert.ToInt32(dateString[1]), Convert.ToInt32(dateString[2]));");
                             template.AppendLine("\t}");
                         }
                         else if (Type.ToString().Contains("time"))
                         {
-                            var format = "hh:mm";
-                            template.AppendLine($"\tTimeOnly {Field} = TimeOnly.FromDateTime(DateTime.Now);");
+\                           template.AppendLine($"\tTimeOnly {Field} = TimeOnly.FromDateTime(DateTime.Now);");
                             template.AppendLine($"\tif (!string.IsNullOrEmpty(Request.Form[\"{Field}\"]))");
                             template.AppendLine("\t{");
-                            template.AppendLine($"\t TimeOnly.TryParseExact(Request.Form[\"{Field}\"], \"" + format + "\",new CultureInfo(\"en-US\"),DateTimeStyles.None,out " + Field + " );");
+                            template.AppendLine($"\tvar timeString = Request.Form[\"{Field}\"].ToString().Split(\":\");");
+                            template.AppendLine("\tsampleTime = new(Convert.ToInt32(timeString[0].ToString()), Convert.ToInt32(timeString[1].ToString()));");
                             template.AppendLine("\t}");
                         }
                         else if (Type.ToString().Contains("year"))
@@ -1772,11 +1782,38 @@ namespace RebelCmsGenerator
                     }
                     else
                     {
-                        loopColumn.AppendLine("                    new ()");
-                        loopColumn.AppendLine("                    {");
-                        loopColumn.AppendLine("                        Key = \"@" + Field + "\",");
-                        loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field));
-                        loopColumn.AppendLine("                    },");
+                        if (Type.ToString().Contains("datetime"))
+                        {
+                            loopColumn.AppendLine("                    new ()");
+                            loopColumn.AppendLine("                    {");
+                            loopColumn.AppendLine("                        Key = \"@" + Field + "\",");
+                            loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field)+ ".ToString(\"yyyy-MM-dd HH:mm\")");
+                            loopColumn.AppendLine("                    },");
+                        }
+                        else if (Type.ToString().Contains("date"))
+                        {
+                            loopColumn.AppendLine("                    new ()");
+                            loopColumn.AppendLine("                    {");
+                            loopColumn.AppendLine("                        Key = \"@" + Field + "\",");
+                            loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field) + ".ToString(\"yyyy-MM-dd\")");
+                            loopColumn.AppendLine("                    },");
+                        }
+                        else if (Type.ToString().Contains("time"))
+                        {
+                            loopColumn.AppendLine("                    new ()");
+                            loopColumn.AppendLine("                    {");
+                            loopColumn.AppendLine("                        Key = \"@" + Field + "\",");
+                            loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field) + ".ToString(\"HH::mm\")");
+                            loopColumn.AppendLine("                    },");
+                        }
+                        else
+                        {
+                            loopColumn.AppendLine("                    new ()");
+                            loopColumn.AppendLine("                    {");
+                            loopColumn.AppendLine("                        Key = \"@" + Field + "\",");
+                            loopColumn.AppendLine("                        Value = " + lcTableName + "Model." + UpperCaseFirst(Field));
+                            loopColumn.AppendLine("                    },");
+                        }
                     }
                 }
             }
@@ -1972,7 +2009,7 @@ namespace RebelCmsGenerator
                 }
             }
             // how many table join is related ? 
-            template.AppendLine("\t WHERE   isDelete != 1");
+            template.AppendLine($"\t WHERE   {tableName}.isDelete != 1");
             // we create a list which field  manually so end user can choose we give em all filter 
             StringBuilder templateSearch = new();
             foreach (DescribeTableModel describeTableModel in describeTableModels)
@@ -2003,7 +2040,29 @@ namespace RebelCmsGenerator
                         AND     TABLE_NAME = 'sample'
                         we create a new function -> GetForeignKeyTableName(tableName, Field)  but this is if the person want to override this generator
                         ***/
-                        templateSearch.Append("\t " + Field.Replace("Id", "") + "." + Field.Replace("Id", "") + "Name like concat('%',@search,'%') OR");
+                        var foreignTableName = GetForeignKeyTableName(tableName, Field);
+                        if (foreignTableName != null)
+                        {
+                            List<DescribeTableModel> describeTableForeignModels = GetTableStructure(foreignTableName);
+                            // here we got some issue either if was nested  foreign key .Are we want to search em all or just take the string and number
+                            // only for search purpose .Some part need to manually think also . it will endless loop if wanted too 
+                            // so as conclusion we only search which not  primary key or foreign key  .
+                            foreach (DescribeTableModel describeTableForeignModel in describeTableForeignModels)
+                            {
+                                string ForeignModelKey = string.Empty;
+                                string ForeignModelField = string.Empty;
+                                string ForeignModelType = string.Empty;
+                                if (describeTableModel.KeyValue != null)
+                                    ForeignModelKey = describeTableModel.KeyValue;
+                                if (describeTableModel.FieldValue != null)
+                                    ForeignModelField = describeTableModel.FieldValue;
+                                if (describeTableModel.TypeValue != null)
+                                    ForeignModelType = describeTableModel.TypeValue;
+                                if (!(ForeignModelKey.Equals("PRI") && ForeignModelKey.Equals("MULL")))
+                                    templateSearch.Append("\t " + foreignTableName + "." +ForeignModelField + " like concat('%',@search,'%') OR");
+
+                            }
+                        }
                     }
                     else
                     {
@@ -2013,7 +2072,7 @@ namespace RebelCmsGenerator
 
                 }
             }
-            template.AppendLine("\t AND " + templateSearch.ToString().TrimEnd('O', 'R') + "\";");
+            template.AppendLine("\t AND (" + templateSearch.ToString().TrimEnd('O', 'R') + ")\";");
 
             template.AppendLine("                MySqlCommand mySqlCommand = new(sql, connection);");
             template.AppendLine("                parameterModels = new List<ParameterModel>");
@@ -2036,7 +2095,7 @@ namespace RebelCmsGenerator
             template.AppendLine("                        " + lcTableName + "Models.Add(new " + ucTableName + "Model");
             template.AppendLine("                       {");
 
-   
+
             foreach (DescribeTableModel describeTableModel in describeTableModels)
             {
                 string Key = string.Empty;
@@ -2080,10 +2139,12 @@ namespace RebelCmsGenerator
                     else if (Type.ToString().Contains("year"))
                     {
                         template.AppendLine("                            " + UpperCaseFirst(Field) + " = Convert.ToInt32(reader[\"" + LowerCaseFirst(Field) + "\"]),");
-                    } else if (Type.ToString().Contains("time")){
+                    }
+                    else if (Type.ToString().Contains("time"))
+                    {
                         template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToTime((TimeSpan)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
-                    else  if (Type.ToString().Contains("date"))
+                    else if (Type.ToString().Contains("date"))
                     {
                         template.AppendLine("                            " + UpperCaseFirst(Field) + " = CustomDateTimeConvert.ConvertToDate((DateTime)reader[\"" + LowerCaseFirst(Field) + "\"]),");
                     }
@@ -2263,10 +2324,9 @@ namespace RebelCmsGenerator
 
             return template.ToString(); ;
         }
-
-        private string? GetForeignKeyTableName(string tableName, string field)
+        private string? GetPrimayKeyTableName(string tableName, string field)
         {
-       
+
 
             using MySqlConnection connection = GetConnection();
             connection.Open();
@@ -2277,7 +2337,35 @@ namespace RebelCmsGenerator
 		    FROM 	information_schema.KEY_COLUMN_USAGE
 		    WHERE 	table_schema='{DEFAULT_DATABASE}'
 		    AND 	TABLE_NAME = '{tableName}'
-		    AND REFERENCED_COLUMN_NAME='{field}'
+            AND     COLUMN_NAME='{field}'
+		    AND     REFERENCED_COLUMN_NAME IS NULL
+            AND
+            LIMIT  1 ";
+            var command = new MySqlCommand(sql, connection);
+            try
+            {
+                referencedTableName = command.ExecuteScalar().ToString();
+            }
+            catch (MySqlException ex)
+            {
+                Debug.WriteLine(ex.Message);
+            }
+            return referencedTableName;
+        }
+        private string? GetForeignKeyTableName(string tableName, string field)
+        {
+
+
+            using MySqlConnection connection = GetConnection();
+            connection.Open();
+            var referencedTableName = string.Empty;
+            // this is generator so nooo need  bind param
+            string sql = $@"		
+            SELECT  REFERENCED_TABLE_NAME
+		    FROM 	information_schema.KEY_COLUMN_USAGE
+		    WHERE 	table_schema='{DEFAULT_DATABASE}'
+		    AND 	TABLE_NAME = '{tableName}'
+		    AND     COLUMN_NAME='{field}'
             LIMIT  1 ";
             var command = new MySqlCommand(sql, connection);
             try
